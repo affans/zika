@@ -12,11 +12,11 @@ function main()
     P = ZikaParameters()    ## variables defined outside are not available to the functions. 
     
     ## the grids for humans and mosquitos
-    human = Array(Human, P.grid_size_human)
-    mosq  = Array(Mosq, P.grid_size_mosq)
+    human = Array{Human}(P.grid_size_human)
+    mosq  = Array{Mosq}(P.grid_size_mosq)
        
     setup_humans(human)          ## setups age distribution, sexual frequency
-    age_distribution(human)
+    setup_age(human)
 
-    return human
+    return human, mosq
 end
