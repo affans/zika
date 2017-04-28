@@ -1,22 +1,18 @@
-## to get
-@enum HEALTH SUSC=1 LAT=2 ASYMP=3 SYMP=4 SYMPISO=5 REC=6 DEAD=7 UNDEF=0
-@enum GENDER MALE=1 FEMALE=2
-
 type Human
     health::HEALTH      # health status of the human
     swap::HEALTH
     age::Int64          # current age of the human
     gender::GENDER
     statetime::Int64
-    timeinstate::Int64
-    sickcnt::Int64      # how many times this person goes to latent
-    sexonoff :: Bool
+    timeinstate::Int64    
+    sexonoff :: Bool    # turn this one when the person gets infected
     partner::Int64      # the index of the partner in the lattice
-    nextsevensex::Vector{Int64}  
+    sexfrequency::Int64 # sex frequency, dosnt get used if sexonoff stays false
 end
 
 type Mosq 
     health::HEALTH
+    swap::HEALTH
     age::Int64
     ageofdeath::Int64
     statetime::Int64
@@ -28,16 +24,17 @@ end
 
 function setup_humans(a)
     ## intialize the array with empty values. 
+    ## everyone stats as susceptible, swap is set to null. 
+    ## statetime is 999 (longer than 2 year sim time), timeinstate is 0. !
     for i = 1:length(a)
         a[i] = Human(SUSC, UNDEF,    #health swap
-                     -1, MALE,   #age, all males 
-                      1000, 0,      #statetime, timeinstate
-                      0,            #zero sick count
-                      false, -1, [0, 0, 0, 0, 0, 0, 0]) #sexonoff, partner index, frequency
+                     -1, MALE,       #age, all males 
+                      999, 0,        #statetime, timeinstate      
+                      false, -1, -1) #sexonoff, partner index, number of sex
     end  # or use a = [Human(SUSC) for i in 1:2]    
 end
 
-function setup_human_demographics(a)
+function setup_human_demographics(a) # to-do: nothing
     ## get the 3-tuple age: (probdistribution, agemin, agemax)
     d = distribution_age() # so d[1] dist, d[2] - age min, d[3] age max 
     ## get the male/female distribution
@@ -53,14 +50,19 @@ function setup_human_demographics(a)
         else 
             a[i].gender = FEMALE
         end
+        a[i].sexonoff = false ## turn of sex for all
     end 
 end
 
 function setup_sexualinteraction(h)
-    ## this fucntion assigns sexual partners. 
+    ## assign everyone sexual frequency. the function returns 0 if age < 15, so dont deal with it now
+    map(x -> x.sexfrequency = calculatesexfrequency(x.age, x.gender), h);
+    
+    ## next, assign sexual partners. -- logic of this:
     ## if there are 24 males (over 15 years age), and 26(over 15 years) females, 
     ##   then all 24 males get a partner.
-    ## 
+    ## if a human is being assigned a partner, randomly give him/her number of times of sex
+    ## age 15 in days in 5475
     cntmale = length(find(x -> x.gender == MALE && x.age >= 5475, h))
     cntfemale = length(find(x -> x.gender == FEMALE && x.age >= 5475, h))
     malein = find(x -> x.gender == MALE && x.age >= 5475, h)
@@ -70,34 +72,42 @@ function setup_sexualinteraction(h)
         for i in malein
             rnf = rand(1:length(femalein)) #get a random felame
             h[i].partner = femalein[rnf] ## gets the rnf'th element which is an index of the female
-            h[femalein[rnf]].partner = i         ## assign the opposite gender
-            #delete the index from the female
-            deleteat!(femalein, rnf)
+            h[femalein[rnf]].partner = i         ## assign the opposite gender            
+            deleteat!(femalein, rnf) #delete the index from the female        
         end        
     else 
         #more males, females will get saturated with partners
         for i in femalein
             rnf = rand(1:length(malein)) #get a random felame
             h[i].partner = malein[rnf] ## gets the rnf'th element which is an index of the female
-            h[malein[rnf]].partner = i 
-            #delete the index from the female
-            deleteat!(malein, rnf)
+            h[malein[rnf]].partner = i             
+            deleteat!(malein, rnf) #delete the index from the female
         end  
-    end 
-end
-
-function calculate_sexfrequency(i::Int64)
-    #calculate sexual frequency
-    return 1
-end
-
-
-function setup_mosquito_demographics(m)
-    for i=1:length(m)
-        rn = rand()
-
     end
+
+
+ 
 end
+
+function setup_mosquitos(m)
+    ## intialize the array with empty values. 
+    ## all mosquitos start as susceptible, swap is set to null. 
+    for i = 1:length(m)
+        m[i] = Mosq(SUSC, UNDEF,    #health swap
+                     -1, -1,       #age, ageofdeath 
+                      999, 0,        #statetime, timeinstate      
+                      UNDEF, -1)     # infection from, numbers of bites.
+    end
+    ## get the number of bites for this mosquito using a poisson distribution
+    map(x -> x.numberofbites = rand(Poisson(x.age/2)), m)
+end
+
+function setup_mosquitobites()
+    ## this function distributes the mosquito age
+end
+
+
+
 
 
 #### DEBUG ####
@@ -112,27 +122,3 @@ end
 ##a[1] = 20
 #a[1] # outputs 20
 #a[2] # ALSO outputs 20
-
-function howmany_malefemale(a)
-    print("male: $(length(find(x -> x.gender == MALE, a))) \n")
-    print("female: $(length(find(x -> x.gender == FEMALE, a))) \n")
-    print("male (over 15): $(length(find(x -> x.gender == MALE && x.age >= 5475, a))) \n")
-    print("female (over 15): $(length(find(x -> x.gender == FEMALE && x.age >= 5475, a))) \n")
-end
-
-function test_sexualpartners(h)
-    malein = find(x -> x.gender == MALE && x.partner > 0, h)
-    femalein = find(x -> x.gender == FEMALE && x.partner > 0, h)
-    
-    ## should be equal
-    assert(length(malein) == length(femalein))
-
-    for i=1:length(h) ## go through all, optimization not neccesary, its a test
-        if h[i].partner > 0  ## partner is assigned
-            partnerindex = h[i].partner
-            if i != h[partnerindex].partner
-                print("partner different at $i and $partnerindex")
-            end
-        end
-    end 
-end

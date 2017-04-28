@@ -1,5 +1,7 @@
 using Parameters #module
 using Distributions
+
+## MAIN SYSTEM PARAMETERS
 @with_kw immutable ZikaParameters @deftype Int64
     # general parameters
     sim_time = 730       ## time of simulation - 2 years in days
@@ -10,9 +12,13 @@ using Distributions
     winterlifespan_max = 30
     winterlifespan_min = 0
     summerlifespan_max = 60
-    summerlifespan_min = 0
-    
+    summerlifespan_min = 0       
 end
+
+## Enums
+@enum HEALTH SUSC=1 LAT=2 ASYMP=3 SYMP=4 SYMPISO=5 REC=6 DEAD=7 UNDEF=0
+@enum GENDER MALE=1 FEMALE=2
+@enum SEASON SUMMER=1 WINTER=2
 
 
 
@@ -126,7 +132,30 @@ function distribution_gender()
     ProbMale[80] = ProbMale[81] = ProbMale[82] = ProbMale[83] = ProbMale[84] = 0.4164767;
     ProbMale[85:end] = 0.0
     return ProbMale
- end
+end
+
+ 
+function distribution_sexfrequency()
+    dist_men = [    [0.167, 0.334, 0.563, 0.792, 0.896, 1],     # 15 - 24    
+                    [0.109,	0.572,	0.7575,	0.943,	0.9725,	1], # 25 - 29                   
+                    [0.201,	0.674,	0.808,	0.942,	0.971,	1], # 30 - 39
+                    [0.254,	0.764,	0.8635,	0.963,	0.9815,	1], # 40 - 49                   
+                    [0.456,	0.839,	0.914,	0.989,	0.9945,	1], # 50 - 55  
+                    [0.551, 0.905, 0.9525, 1, 1, 1],            # 60 - 69
+                    [0.784, 0.934, 0.963, 0.992, 0.996, 1]]         # 70+                     
+    dist_women = [  [0.265,	0.412,	0.5885,	0.765,	0.8825,	1],     # 15 - 24    
+                    [0.151,	0.628,	0.804,	0.98,	0.99,	1], # 25 - 29                   
+                    [0.228,	0.73,	0.8395,	0.949,	0.9745,	1], # 30 - 39
+                    [0.298,	0.764,	0.868,	0.972,	0.9855,	1], # 40 - 49                   
+                    [0.457,	0.819,	0.9035,	0.988,	0.9935,	1], # 50 - 59
+                    [0.579,	0.938,	0.969,	1,	1,	1],            # 60 - 69
+                    [0.789,	0.972,	0.979,	0.986,	0.993,	1]]         # 70+ 
+    ## return distribution as tuple
+  
+    # since this is manually input, check if the length of all the inner vectors are the same
+    #map(x -> length(x), wfd)√
+    return dist_men, dist_women
+end
 
 ## debug
 #a = ZikaParameters()
