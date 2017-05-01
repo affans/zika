@@ -19,6 +19,7 @@ type Mosq
     timeinstate::Int64
     infectionfrom::HEALTH
     numberofbites::Int64
+    bitedistribution::Array{Int64}
 end
 
 
@@ -44,7 +45,7 @@ function setup_human_demographics(a) # to-do: nothing
         rn = rand()
         g = minimum(find(x -> rn <= x, d[1]))
         age_y = Int(round(rand()*(d[3][g] - d[2][g]) + d[2][g]))
-        a[i].age = age_y*365
+        a[i].age = age_y*364
         if rand() < m[age_y] 
             a[i].gender = MALE
         else 
@@ -55,6 +56,8 @@ function setup_human_demographics(a) # to-do: nothing
 end
 
 function setup_sexualinteraction(h)
+    ## incoming parameter: h -- an array of initialized humans
+
     ## assign everyone sexual frequency. the function returns 0 if age < 15, so dont deal with it now
     map(x -> x.sexfrequency = calculatesexfrequency(x.age, x.gender), h);
     
@@ -83,34 +86,66 @@ function setup_sexualinteraction(h)
             h[malein[rnf]].partner = i             
             deleteat!(malein, rnf) #delete the index from the female
         end  
-    end
-
-
- 
+    end 
 end
 
-function setup_mosquitos(m)
-    ## intialize the array with empty values. 
-    ## all mosquitos start as susceptible, swap is set to null. 
+function setup_mosquitos(m)   
     for i = 1:length(m)
-        m[i] = Mosq(SUSC, UNDEF,    #health swap
-                     -1, -1,       #age, ageofdeath 
-                      999, 0,        #statetime, timeinstate      
-                      UNDEF, -1)     # infection from, numbers of bites.
+        m[i] = create_mosquito()
+        m[i].age = rand(1:m[i].ageofdeath)  ## for setting up the world, give them random age
+    end    
+end
+
+
+
+function create_mosquito()
+    ## intialize the array with empty values. 
+    ## all mosquitos start as susceptible, swap is set to null, and infectionfrom is set to null
+    m = Mosq(SUSC, UNDEF, -1, -1, 999, 0, UNDEF, -1, [])  ## initialization
+    ## setup the age of death - distribution should already be created .. pick the right one
+    d = current_season == SUMMER ? sdist_lifetimes : wdist_lifetimes  ## current_season defined as a global in main.jl
+    rn = rand()
+    m.ageofdeath =  minimum(find(x -> rn <= x, d))        
+    m.age = 1    ## new mosquito is 1 day old (this is because the way sim logic works)
+    m.numberofbites = min(rand(Poisson(m.ageofdeath/2)), m.ageofdeath)
+    
+    # bite distribution
+    temp_bitedist = zeros(Int64, m.ageofdeath)  ## create a vector as long as age of death
+    s = sample(1:m.ageofdeath, m.numberofbites, replace=false)   # sample, which indices(ie days) can a mosquito bite
+    map(x -> temp_bitedist[x] = 1, s)
+    m.bitedistribution = temp_bitedist
+    return m
+end
+
+
+## this function distributes the number of bites into an array
+function setup_mosquitobite_distribution()
+    ## for every mosquito, take its number of bites
+    return 1
+end
+
+function calculatesexfrequency(age::Int64, sex::GENDER)
+    ## this function calculates sex frequency based on the distribution
+    # first we need to get the age group  - this is a number between 1 and 8 -
+    ag = get_age_group(age)     ## get the agegroup
+    if ag == 0   # if age group 1 - 15
+        return 0
     end
-    ## get the number of bites for this mosquito using a poisson distribution
-    map(x -> x.numberofbites = rand(Poisson(x.age/2)), m)
+    mfd, wfd = distribution_sexfrequency()  ## get the distributions
+    rn = rand() ## roll a dice
+    sexfreq = 0
+    if sex == MALE 
+        sexfreq = minimum(find(x -> rn <= x, mfd[ag]))   #if male, use the male distribution
+    else 
+        sexfreq = minimum(find(x -> rn <= x, wfd[ag]))   #if female, use the female distribution
+    end
+    return sexfreq
 end
 
-function setup_mosquitobites()
-    ## this function distributes the mosquito age
-end
 
 
 
-
-
-#### DEBUG ####
+#### DEBUG ####a
 
 
 ## how to get an array

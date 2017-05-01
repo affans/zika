@@ -1,7 +1,8 @@
 using Parameters #module
 using Distributions
+using StatsBase
 
-## MAIN SYSTEM PARAMETERS
+## MAIN SYSTEM PARAMETER
 @with_kw immutable ZikaParameters @deftype Int64
     # general parameters
     sim_time = 730       ## time of simulation - 2 years in days
@@ -12,7 +13,15 @@ using Distributions
     winterlifespan_max = 30
     winterlifespan_min = 0
     summerlifespan_max = 60
-    summerlifespan_min = 0       
+    summerlifespan_min = 0 
+
+    # mosquito hazard function parameters
+    aSummer::Float64 = 0.0018;
+    bSummer::Float64 = 0.3228;
+    sSummer::Float64 = 2.1460;
+    aWinter::Float64 = 0.0018;
+    bWinter::Float64 = 0.8496;
+    sWinter::Float64 = 4.2920;
 end
 
 ## Enums
@@ -22,7 +31,7 @@ end
 
 
 
-## age distribution discrete
+## age distribution discrete for humans
 function distribution_age()
     ProbBirthAge = Vector{Float64}(19)
     SumProbBirthAge = Vector{Float64}(19)
@@ -111,6 +120,7 @@ function distribution_age()
     return SumProbBirthAge, AgeMin, AgeMax
 end
 
+## random gender male/female distribution
 function distribution_gender()
     ProbMale = Array{Float64}(100)
     ProbMale[1]  = ProbMale[2]  = ProbMale[3]  = ProbMale[4]  = 0.5115895;
@@ -134,7 +144,7 @@ function distribution_gender()
     return ProbMale
 end
 
- 
+## male/female sexual frequency
 function distribution_sexfrequency()
     dist_men = [    [0.167, 0.334, 0.563, 0.792, 0.896, 1],     # 15 - 24    
                     [0.109,	0.572,	0.7575,	0.943,	0.9725,	1], # 25 - 29                   
@@ -157,5 +167,49 @@ function distribution_sexfrequency()
     return dist_men, dist_women
 end
 
-## debug
-#a = ZikaParameters()
+## the hazard function for mosquito age death, returns both winter and summer distributions
+function distribution_hazard_function()
+    
+    
+    ## parameters for the hazard distribution passed in through the global P variable   
+    ## store them in local variables   
+    summerlifespan = P.summerlifespan_max
+    winterlifespan = P.winterlifespan_max
+    
+    
+    summer_hazard = zeros(summerlifespan)
+    summer_hazard_cum = zeros(summerlifespan)
+    summer_SurS = zeros(summerlifespan)
+    summer_PDFS = zeros(summerlifespan)
+    winter_hazard = zeros(winterlifespan)
+    winter_hazard_cum = zeros(winterlifespan)
+    winter_SurS = zeros(winterlifespan)
+    winter_PDFS = zeros(winterlifespan)
+
+    KS = zeros(summerlifespan)
+    KW = zeros(winterlifespan)
+
+    ## hazard functions
+    hazard_summer(t) = P.aSummer*exp(P.bSummer*(t-1))/(1+P.aSummer*P.sSummer*(exp(P.bSummer*(t-1))-1)/P.bSummer)
+    hazard_winter(t) = P.aWinter*exp(P.bWinter*(t-1))/(1+P.aWinter*P.sWinter*(exp(P.bWinter*(t-1))-1)/P.bWinter);
+    for t=1:summerlifespan
+        KS[t], E = quadgk(hazard_summer, 0, t)   ## returns a tuple, E is the error
+        summer_SurS[t] = exp(-KS[t])
+        summer_PDFS[t] = hazard_summer(t)*summer_SurS[t]            
+    end
+    for t=1:winterlifespan
+        KW[t], E = quadgk(hazard_winter, 0, t)   ## returns a tuple, E is the error
+        winter_SurS[t] = exp(-KW[t])
+        winter_PDFS[t] = hazard_winter(t)*winter_SurS[t]
+    end
+ 
+    ## get the cumlative and..
+    ## make them add to one since the integration is done numerically, and we might be off by 0.001 or so
+    sc = cumsum(summer_PDFS)
+    sw = cumsum(winter_PDFS)
+    sc[end] = 1
+    sw[end] = 1
+    
+    ## RETURNS THE DISTRIBUTION BASED ON THE SEASON
+    return sc, sw
+end

@@ -66,26 +66,51 @@ function test_getagegroup(human)
     #end 
 end
 
-function calculatesexfrequency(age::Int64, sex::GENDER)
-    ## this function calculates sex frequency based on the distribution
-    # first we need to get the age group  - this is a number between 1 and 8 -
-    ag = get_age_group(age)     ## get the agegroup
-    if ag == 0   # if age group 1 - 15
-        return 0
+
+
+function test_mosquito_hazard_function()
+    #get the distribution from the parameters.jl file
+    summer_dist, winter_dist = distribution_hazard_function()
+    summer_lifetimes = zeros(Int64, 100000)
+    winter_lifetimes = zeros(Int64, 100000)
+
+    ## get sample "lifetimes" for summer
+    #method 1
+    
+    for i = 1:100000
+        rn = rand()
+        summer_lifetimes[i] = minimum(find(x -> rn <= x, summer_dist))
+        winter_lifetimes[i] = minimum(find(x -> rn <= x, winter_dist))
     end
-    mfd, wfd = distribution_sexfrequency()  ## get the distributions
-    rn = rand() ## roll a dice
-    sexfreq = 0
-    if sex == MALE 
-        sexfreq = minimum(find(x -> rn <= x, mfd[ag]))   #if male, use the male distribution
-    else 
-        sexfreq = minimum(find(x -> rn <= x, wfd[ag]))   #if female, use the female distribution
-    end
-    return sexfreq
+    ms = mean(summer_lifetimes)
+    mw = mean(winter_lifetimes)
+    print("mean of summer lifetimes: $ms \n") 
+    print("mean of winter lifetimes: $mw \n")
 end
 
 
-
-function summarize_humans
-
+function test_mosquito_age_agedeath_numberofbites(m)
+    ## this function tests if the number of bites assigned to a mosqutio 
+    ##  exceeds the days remaining for the mosquito
+    ##  example, if mosqutio has age 5, and dies at age 10.. then the max number of bites is 5..
+    ctr = 0 
+    map(x -> begin
+                if x.numberofbites > (x.ageofdeath - x.age)
+                    print("mosquito: age =  $(x.age), death = $(x.ageofdeath), numberofbites = $(x.numberofbites) \n")
+                    ctr = ctr + 1
+                end
+             end, m)
+    print("total number of mosquitos for which number of bites > ageofdeath - age: $ctr")
 end
+
+#method 1
+#agd = zeros(Int64, 50000)
+#for i = 1:50000
+ #   rn = rand()
+#    agd[i] = minimum(find(x -> rn <= x, a))
+#end
+#method 2
+#ag = [findfirst(a, sample(a)) for i=1:5000]
+  
+#ap = plot(x=a, Geom.histogram)
+#draw(PDF("myplot.pdf", 3inch, 3inch), ap)
