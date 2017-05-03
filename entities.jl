@@ -1,13 +1,18 @@
 type Human
     health::HEALTH      # health status of the human
     swap::HEALTH
+    latentfrom::Int64   ## 1 if bite, 2 if sexual
     age::Int64          # current age of the human
+    agegroup::Int64     # agegroup - for age distribution
     gender::GENDER
     statetime::Int64
-    timeinstate::Int64    
-    sexonoff :: Bool    # turn this one when the person gets infected
+    timeinstate::Int64 
+    recoveredfrom::HEALTH      
     partner::Int64      # the index of the partner in the lattice
-    sexfrequency::Int64 # sex frequency, dosnt get used if sexonoff stays false
+    sexfrequency::Int64 # sex frequency
+    sexprobability::Float64  ## dont think i need this
+    cumalativesex::Int64
+    cumalativedays::Int64
 end
 
 type Mosq 
@@ -28,75 +33,125 @@ function setup_humans(a)
     ## everyone stats as susceptible, swap is set to null. 
     ## statetime is 999 (longer than 2 year sim time), timeinstate is 0. !
     for i = 1:length(a)
-        a[i] = Human(SUSC, UNDEF,    #health swap
-                     -1, MALE,       #age, all males 
-                      999, 0,        #statetime, timeinstate      
-                      false, -1, -1) #sexonoff, partner index, number of sex
+        a[i] = Human(SUSC, UNDEF, 0,   #health, swap, latentfrom
+                     -1, -1, MALE,       #age, agegroup, all males 
+                      999, 0, UNDEF,        #statetime, timeinstate, recoveredfrom      
+                      -1, -1, -1,        # partner index, number of sex, sex probability
+                      -1, -1 )  #cumalativesex, #cumalativedays
     end  # or use a = [Human(SUSC) for i in 1:2]    
 end
 
 function setup_human_demographics(a) # to-do: nothing
     ## get the 3-tuple age: (probdistribution, agemin, agemax)
-    d = distribution_age() # so d[1] dist, d[2] - age min, d[3] age max 
-    ## get the male/female distribution
-    m = distribution_gender()   
+    cumdist, dist_gend, agemin, agemax = distribution_age() # so d[1] dist, d[2] - age min, d[3] age max 
     for i = 1:length(a)
         #assign age and gender        
         rn = rand()
-        g = minimum(find(x -> rn <= x, d[1]))
-        age_y = Int(round(rand()*(d[3][g] - d[2][g]) + d[2][g]))
-        a[i].age = age_y*364
-        if rand() < m[age_y] 
+        g = minimum(find(x -> rn <= x, cumdist))
+
+        age_y = rand(agemin[g]:agemax[g])#Int(round(rand()*(agemax[g] - agemin[g]) + agemin[g]))
+        a[i].age = age_y
+        a[i].agegroup = g
+        if rand() < 0.5 #dist_gend[g] 
             a[i].gender = MALE
         else 
             a[i].gender = FEMALE
-        end
-        a[i].sexonoff = false ## turn of sex for all
+        end        
     end 
 end
 
-function setup_sexualinteraction(h)
-    ## incoming parameter: h -- an array of initialized humans
-
+function setup_sexualinteractionthree(h)  
     ## assign everyone sexual frequency. the function returns 0 if age < 15, so dont deal with it now
     map(x -> x.sexfrequency = calculatesexfrequency(x.age, x.gender), h);
     
-    ## next, assign sexual partners. -- logic of this:
-    ## if there are 24 males (over 15 years age), and 26(over 15 years) females, 
-    ##   then all 24 males get a partner.
-    ## if a human is being assigned a partner, randomly give him/her number of times of sex
-    ## age 15 in days in 5475
-    cntmale = length(find(x -> x.gender == MALE && x.age >= 5475, h))
-    cntfemale = length(find(x -> x.gender == FEMALE && x.age >= 5475, h))
-    malein = find(x -> x.gender == MALE && x.age >= 5475, h)
-    femalein = find(x -> x.gender == FEMALE && x.age >= 5475, h)
-    if cntmale <= cntfemale
-        #more females, males will get saturated with partners
-        for i in malein
-            rnf = rand(1:length(femalein)) #get a random felame
-            h[i].partner = femalein[rnf] ## gets the rnf'th element which is an index of the female
-            h[femalein[rnf]].partner = i         ## assign the opposite gender            
-            deleteat!(femalein, rnf) #delete the index from the female        
+
+    cntmale = length(find(x -> x.gender == MALE && x.age >= 15, h))
+    cntfemale = length(find(x -> x.gender == FEMALE && x.age >= 15, h))
+
+    malein = find(x -> x.gender == MALE && x.age >= 15, h)
+    femalein = find(x -> x.gender == FEMALE && x.age >= 15, h)
+
+    ## inline if statement.. if cntmale < cntfemale, use malein as the masterindex
+    ## this masterindex contains the humans that could be saturated
+    smallerindex = cntmale <= cntfemale ? malein : femalein
+    largerindex  = cntmale > cntfemale ? malein : femalein
+    missedindex = Int64[] # => 0-element Int64 Array
+    # GO THROUGH THE SMALLER INDEX
+    for i in smallerindex
+        ## i is the i'th human that needs a partner.
+        ag = h[i].age
+        ## find all males from the master list, that are suitable.. ie revise it to match the female age. this returns the index of the human that is suitable. 
+        # if the human is not suitable, it returns -1
+        suitable = map(x -> h[x].age >= ag - 5 && h[x].age < ag + 5 ? x : -1, largerindex)
+       
+        # length  suitable is same as largerindex BUT non suitables are marked -1
+        #  thus we only need to look at humans that are marked larger than -1
+        #  the find function returns INDICES...so run it inside suitable[] to get the HUMAN  index back
+        suitable_filtered = suitable[find(x -> x > 0, suitable)]
+        
+        ## if there is no suitable partner.. BUT PARTNERS REMAIN since we are working with a smaller index, store this person in an array, and we'll assign later.
+        if length(suitable_filtered) == 0
+            ## for this i'th human, we dont have a suitable partner.. we'll assign a random one
+            push!(missedindex, i)
+        else 
+            ## this i'th person has a stuiable partner to pick from
+            rnf = suitable_filtered[rand(1:length(suitable_filtered))]
+            h[i].partner = rnf            
+            h[rnf].partner = i
+
+            # need to delete from the largerindex
+            #  first find what index this human is in the largerindex
+            idxtodelete = find(x -> x == rnf, largerindex)
+            deleteat!(largerindex, idxtodelete)
         end        
-    else 
-        #more males, females will get saturated with partners
-        for i in femalein
-            rnf = rand(1:length(malein)) #get a random felame
-            h[i].partner = malein[rnf] ## gets the rnf'th element which is an index of the female
-            h[malein[rnf]].partner = i             
-            deleteat!(malein, rnf) #delete the index from the female
-        end  
-    end 
+    end
+
+    ## go through the missing index.. these were humans that couldnt find partners
+    ## go through all of them, and assign them random partners from the largerindex
+    ##  first check if this is even possible
+    if length(largerindex) < length(missedindex)
+        print("error in sexual interaction")
+        assert(1 == 2)
+    end
+
+    for i in missedindex
+        rnf = rand(1:length(largerindex))
+        h[i].partner = largerindex[rnf]
+        h[largerindex[rnf]].partner = i
+        deleteat!(largerindex, rnf)
+    end
+    #return missedindex
 end
 
 function setup_mosquitos(m)   
+    ## incoming parameter is the array of Mosquito Type
     for i = 1:length(m)
         m[i] = create_mosquito()
-        m[i].age = rand(1:m[i].ageofdeath)  ## for setting up the world, give them random age
+        #m[i].age = rand(min(5, m[i].ageofdeath):m[i].ageofdeath)  ## for setting up the world, give them random age
     end    
 end
 
+function setup_mosquito_random_age(m)
+    ## pass in mosquito array 
+    ## first create a frequnecy distribution based on their lifetimes
+    lt = map(x -> x.ageofdeath, m)
+    test = zeros(Float64, maximum(lt))
+    for i=1:maximum(lt)
+        a = find(x -> x == i, lt)
+        test[i] = length(a)/P.grid_size_mosq
+    end
+    ## create a cumlative
+    ctest = cumsum(test)
+   
+    for i=1:P.grid_size_mosq
+        rn = rand()
+        age = minimum(find(x -> rn <= x, ctest))
+        tage = max(1, min(age, m[i].ageofdeath - 1))
+        m[i].age = tage
 
+    end
+
+end
 
 function create_mosquito()
     ## intialize the array with empty values. 
@@ -106,7 +161,7 @@ function create_mosquito()
     d = current_season == SUMMER ? sdist_lifetimes : wdist_lifetimes  ## current_season defined as a global in main.jl
     rn = rand()
     m.ageofdeath =  minimum(find(x -> rn <= x, d))        
-    m.age = 1    ## new mosquito is 1 day old (this is because the way sim logic works)
+    m.age = 1   ## new mosquito is 1 day old (this is because the way sim logic works)
     m.numberofbites = min(rand(Poisson(m.ageofdeath/2)), m.ageofdeath)
     
     # bite distribution
@@ -117,12 +172,6 @@ function create_mosquito()
     return m
 end
 
-
-## this function distributes the number of bites into an array
-function setup_mosquitobite_distribution()
-    ## for every mosquito, take its number of bites
-    return 1
-end
 
 function calculatesexfrequency(age::Int64, sex::GENDER)
     ## this function calculates sex frequency based on the distribution
@@ -135,18 +184,26 @@ function calculatesexfrequency(age::Int64, sex::GENDER)
     rn = rand() ## roll a dice
     sexfreq = 0
     if sex == MALE 
-        sexfreq = minimum(find(x -> rn <= x, mfd[ag]))   #if male, use the male distribution
+        sexfreq = minimum(find(x -> rn <= x, mfd[ag])) - 1   #if male, use the male distribution
     else 
-        sexfreq = minimum(find(x -> rn <= x, wfd[ag]))   #if female, use the female distribution
+        sexfreq = minimum(find(x -> rn <= x, wfd[ag])) - 1   #if female, use the female distribution
     end
     return sexfreq
 end
 
 
-
+function setup_rand_initial_latent(h::Array{Human})
+  for i=1:P.inital_latent
+    #print("$i \n")
+    randperson = rand(1:P.grid_size_human)
+    make_human_latent(h[randperson])
+  end
+end
 
 #### DEBUG ####a
-
+#
+#a = find(x -> x.health != SUSC, humans)
+#map(x -> print("$(humans[x].statetime) : \n"), a)
 
 ## how to get an array
 ## the fill! fucntion dosnt seem to be working. It adds the same instance to each element. 

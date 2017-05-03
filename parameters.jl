@@ -5,15 +5,16 @@ using StatsBase
 ## MAIN SYSTEM PARAMETER
 @with_kw immutable ZikaParameters @deftype Int64
     # general parameters
-    sim_time = 730       ## time of simulation - 2 years in days
+    sim_time = 100       ## time of simulation - 2 years in days
     grid_size_human = 100000
     grid_size_mosq = 500000
-    inital_latent = 5    
-    # mosquito parameters
+    inital_latent = 5  
+
+    # mosquito lifetime parameters
     winterlifespan_max = 30
-    winterlifespan_min = 0
+    winterlifespan_min = 1
     summerlifespan_max = 60
-    summerlifespan_min = 0 
+    summerlifespan_min = 1 
 
     # mosquito hazard function parameters
     aSummer::Float64 = 0.0018;
@@ -22,6 +23,29 @@ using StatsBase
     aWinter::Float64 = 0.0018;
     bWinter::Float64 = 0.8496;
     sWinter::Float64 = 4.2920;
+
+    # disease dynamics- human and mosquitos
+    h_latency_max = 8   
+    h_latency_min = 4
+    m_latency_max = 14
+    m_latency_min = 7
+    h_symptomatic_max = 6
+    h_symptomatic_min = 3
+
+    ProbLatentToASymptomaticMax::Float64 = 0.8
+    ProbLatentToASymptomaticMin::Float64 = 0.4
+
+    m_lognormal_latent_shape::Float64 = 2.28  ## mean 10
+    m_lognormal_latent_scale::Float64 = 0.21 
+    h_lognormal_latent_shape::Float64 = 1.72 ## mean 5.7
+    h_lognormal_latent_scale::Float64 = 0.21 
+    h_lognormal_symptomatic_shape::Float64 = 1.54  ## mean 4.7
+    h_lognormal_symptomatic_scale::Float64 = 0.12     
+
+    prob_infection_MtoH::Float64 = 0.3
+    prob_infection_HtoM::Float64 = 0.3
+    ProbIsolationSymptomatic::Float64 = 0
+    reduction_factor::Float64 = 0.2
 end
 
 ## Enums
@@ -33,33 +57,62 @@ end
 
 ## age distribution discrete for humans
 function distribution_age()
-    ProbBirthAge = Vector{Float64}(19)
-    SumProbBirthAge = Vector{Float64}(19)
-    AgeMin = Vector{Int64}(19)
-    AgeMax = Vector{Int64}(19)
+   
+   
+    ProbBirthAge = Vector{Float64}(17)
+    SumProbBirthAge = Vector{Float64}(17)
+    AgeMin = Vector{Int64}(17)
+    AgeMax = Vector{Int64}(17)
 
-    ProbBirthAge[1]  = 9.12e-2; # 0–4 years
-    ProbBirthAge[2]  = 9.05e-2; #// 5–9 years
-    ProbBirthAge[3]  = 9.18e-2; #// 10–14
-    ProbBirthAge[4]  = 9.31e-2; #// 15–19
-    ProbBirthAge[5]  = 8.96e-2; #// 20–24
-    ProbBirthAge[6]  = 8.10e-2 + 0.0865; #// 30–34  add to add to one. 
-    ProbBirthAge[8]  = 6.52e-2; #// 35–39
-    ProbBirthAge[9]  = 6.11e-2; #// 40–44
-    ProbBirthAge[10] = 6.07e-2; #// 45–49
-    ProbBirthAge[11] = 5.40e-2; #// 50–54
-    ProbBirthAge[12] = 4.35e-2; #// 55–59
-    ProbBirthAge[13] = 3.38e-2; #// 60–64
-    ProbBirthAge[14] = 2.53e-2; #// 65–69
-    ProbBirthAge[15] = 1.84e-2; #// 70–74
-    ProbBirthAge[16] = 1.40e-2; ##// 80–84
-    ProbBirthAge[18] = 0.02e-2; #// 85–89
-    ProbBirthAge[19] = 0.01e-2; #// 90+
+    ProbMales = Vector{Float64}(17)
+    ProbMalesCumalative = Vector{Float64}(17)
 
-    for i=1:19
+
+    ProbBirthAge[1] = 0.091248422
+    ProbBirthAge[2] = 0.090502874
+    ProbBirthAge[3] = 0.091847835
+    ProbBirthAge[4] = 0.093120832
+    ProbBirthAge[5] = 0.089609792
+    ProbBirthAge[6] = 0.08103463
+    ProbBirthAge[7] = 0.072690616
+    ProbBirthAge[8] = 0.065216532
+    ProbBirthAge[9] = 0.061130039
+    ProbBirthAge[10] = 0.060741253
+    ProbBirthAge[11] = 0.053966855
+    ProbBirthAge[12] = 0.043527878
+    ProbBirthAge[13] = 0.033841535
+    ProbBirthAge[14] = 0.025345255
+    ProbBirthAge[15] = 0.018361588
+    ProbBirthAge[16] = 0.014017567
+    ProbBirthAge[17] = 0.013796498
+
+    
+    for i=1:17
         SumProbBirthAge[i] = sum(ProbBirthAge[1:i])
     end
-    
+        
+    ProbMales[1] = 0.094553401
+    ProbMales[2] = 0.093693146
+    ProbMales[3] = 0.094978133
+    ProbMales[4] = 0.096477185
+    ProbMales[5] = 0.092884086
+    ProbMales[6] = 0.082288591
+    ProbMales[7] = 0.071831422
+    ProbMales[8] = 0.064047993
+    ProbMales[9] = 0.059401809
+    ProbMales[10] = 0.058733309
+    ProbMales[11] = 0.052017966
+    ProbMales[12] = 0.04172444
+    ProbMales[13] = 0.032401639
+    ProbMales[14] = 0.024016853
+    ProbMales[15] = 0.016942028
+    ProbMales[16] = 0.012369692
+    ProbMales[17] = 0.011638306
+  
+    for i = 1:17
+        ProbMalesCumalative[i] = sum(ProbMales[1:i])
+    end
+
     AgeMin[1] = 1;
     AgeMax[1] = 4;
 
@@ -109,15 +162,9 @@ function distribution_age()
     AgeMax[16] = 79;
 
     AgeMin[17] = 80;
-    AgeMax[17] = 84;
+    AgeMax[17] = 100;
 
-    AgeMin[18] = 85;
-    AgeMax[18] = 89;
-
-    AgeMin[19] = 90;
-    AgeMax[19] = 100;
-
-    return SumProbBirthAge, AgeMin, AgeMax
+    return SumProbBirthAge, ProbMalesCumalative, AgeMin, AgeMax
 end
 
 ## random gender male/female distribution
@@ -175,8 +222,7 @@ function distribution_hazard_function()
     ## store them in local variables   
     summerlifespan = P.summerlifespan_max
     winterlifespan = P.winterlifespan_max
-    
-    
+     
     summer_hazard = zeros(summerlifespan)
     summer_hazard_cum = zeros(summerlifespan)
     summer_SurS = zeros(summerlifespan)

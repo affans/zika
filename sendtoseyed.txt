@@ -1,0 +1,3 @@
+
+- send raw age data (run 5 - 10 sims, and set as columns)
+- lifetimes of mosquitos  - add to one.

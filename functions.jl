@@ -4,8 +4,8 @@
 function howmany_malefemale(a)
     print("male: $(length(find(x -> x.gender == MALE, a))) \n")
     print("female: $(length(find(x -> x.gender == FEMALE, a))) \n")
-    print("male (over 15): $(length(find(x -> x.gender == MALE && x.age >= 5475, a))) \n")
-    print("female (over 15): $(length(find(x -> x.gender == FEMALE && x.age >= 5475, a))) \n")
+    print("male (over 15): $(length(find(x -> x.gender == MALE && x.age >= 15, a))) \n")
+    print("female (over 15): $(length(find(x -> x.gender == FEMALE && x.age >= 15, a))) \n")
 end
 
 function test_sexualpartners(h)
@@ -26,23 +26,24 @@ function test_sexualpartners(h)
 end
 
 function get_age_group(age::Int64)
-    ## make sure the age incoming is IN DAYS!!! It should be if passing in the human type
+    ## this agegroup is a "condensed version" from the age distribution
+    ## this is mainly used for sex frequency
     agegroup = -1
-    if age >=0 && age < 5475 
+    if age >=0 && age < 15 
         agegroup = 0
-    elseif age >= 5475 && age < 9125
+    elseif age >= 15 && age < 25
         agegroup = 1
-    elseif age >= 9125 && age < 10950
+    elseif age >= 25 && age < 30
         agegroup = 2
-    elseif age >= 10950 && age < 14600
+    elseif age >= 30 && age < 40
         agegroup = 3
-    elseif age >= 14600 && age < 18250 
+    elseif age >= 40 && age < 50 
         agegroup = 4 
-    elseif age >= 18250 && age < 21900 
+    elseif age >= 50 && age < 60 
         agegroup = 5 
-    elseif age >= 21900 && age < 25550        
+    elseif age >= 60 && age < 70        
         agegroup = 6 
-    elseif age >= 25550
+    elseif age >= 70
         agegroup = 7
     end 
     return agegroup
@@ -89,18 +90,31 @@ function test_mosquito_hazard_function()
 end
 
 
-function test_mosquito_age_agedeath_numberofbites(m)
-    ## this function tests if the number of bites assigned to a mosqutio 
-    ##  exceeds the days remaining for the mosquito
-    ##  example, if mosqutio has age 5, and dies at age 10.. then the max number of bites is 5..
-    ctr = 0 
-    map(x -> begin
-                if x.numberofbites > (x.ageofdeath - x.age)
-                    print("mosquito: age =  $(x.age), death = $(x.ageofdeath), numberofbites = $(x.numberofbites) \n")
-                    ctr = ctr + 1
-                end
-             end, m)
-    print("total number of mosquitos for which number of bites > ageofdeath - age: $ctr")
+function test_mosquito_numberofbites_and_lifetime(m)
+    ## two tests in this
+    #  1) check if the length of the bitedistribution vector is the same as age of death
+    #  2) and check for each bitedistribution vector, the number of "ones" in the vector are equal to the number of bites
+    t1 = map(x -> length(x.bitedistribution) == x.ageofdeath, m)
+    t1c = length(find(x -> false, t1))
+    if t1c != 0 
+        print("test 1 failed. \n")
+    else
+        print("test 1 passed. \n") 
+    end 
+    t2fail=false
+    for i=1:length(m)
+        tbd= m[i].bitedistribution
+        numofbites = m[i].numberofbites
+        tbdc = length(find(x -> x == 1, tbd))
+        if tbdc != numofbites
+            t2fail = true
+        end
+    end
+    if t2fail
+        print("test 2 failed. \n")
+    else
+        print("test 2 passed. \n") 
+    end
 end
 
 #method 1
@@ -114,3 +128,41 @@ end
   
 #ap = plot(x=a, Geom.histogram)
 #draw(PDF("myplot.pdf", 3inch, 3inch), ap)
+
+
+function setup_sexualinteraction_deprecated(h)
+    ## incoming parameter: h -- an array of initialized humans
+
+   
+    ## assign everyone sexual frequency. the function returns 0 if age < 15, so dont deal with it now
+    map(x -> x.sexfrequency = calculatesexfrequency(x.age, x.gender), h);
+    ## next, assign sexual partners. -- logic of this:
+    ## if there are 24 males (over 15 years age), and 26(over 15 years) females, 
+    ##   then all 24 males get a partner. However, their partner must be in a "similar" age, so therefore it is POSSIBLE not to saturate. 
+    ## if a human is being assigned a partner, randomly give him/her number of times of sex
+    ## age 15 in days in 5475
+    cntmale = length(find(x -> x.gender == MALE && x.age >= 15, h))
+    cntfemale = length(find(x -> x.gender == FEMALE && x.age >= 15, h))
+    malein = find(x -> x.gender == MALE && x.age >= 15, h)
+    femalein = find(x -> x.gender == FEMALE && x.age >= 15, h)
+    if cntmale <= cntfemale
+        #more females, males will get saturated with partners
+        for i in malein
+            rnf = rand(1:length(femalein)) #get a random felame
+            h[i].partner = femalein[rnf] ## gets the rnf'th element which is an index of the female
+            h[femalein[rnf]].partner = i         ## assign the opposite gender            
+            deleteat!(femalein, rnf) #delete the index from the female        
+        end        
+    else 
+        #more males, females will get saturated with partners
+        for i in femalein
+            femaleage = h[5].age ## the female age
+            malein = find(x -> x.gender == MALE && x.age >= femaleage - 5 && x.age <= femaleage + 5 && x.partner == -1, h)
+
+            rnf = rand(1:length(malein)) #get a random felame
+            h[i].partner = malein[rnf] ## gets the rnf'th element which is an index of the female
+            h[malein[rnf]].partner = i             
+            deleteat!(malein, rnf) #delete the index from the female
+        end  
+    end 
+end
