@@ -10,12 +10,12 @@ include("functions.jl")
 include("entities.jl")     ## sets up functions for human and mosquitos
 include("disease.jl")
 include("interaction.jl")
-    
+
 
 function main()
 
     ## setup main variables    
-    global P = ZikaParameters(sim_time = 731, grid_size_human = 500, grid_size_mosq = 2500, inital_latent = 10)    ## variables defined outside are not available to the functions. 
+    global P = ZikaParameters(sim_time = 731, grid_size_human = 100000, grid_size_mosq = 250000, inital_latent = 10)    ## variables defined outside are not available to the functions. 
     
     ## the grids for humans and mosquitos
     humans = Array{Human}(P.grid_size_human)
@@ -29,7 +29,7 @@ function main()
     global sdist_lifetimes
     global wdist_lifetimes
 
-    global df = DataFrame()
+    
     global latent_ctr = zeros(Int64, P.sim_time)
     global bite_symp_ctr = zeros(Int64, P.sim_time)
     global bite_asymp_ctr = zeros(Int64, P.sim_time)
@@ -43,7 +43,7 @@ function main()
     setup_mosquitos(mosqs)
     setup_mosquito_random_age(mosqs)
     setup_rand_initial_latent(humans)
-    print("setup completed... starting simulation")
+    print("setup completed... starting main simulation timeloop \n")
     ## run tests at this point to make sure humans and 
     for t=1:P.sim_time
         ## day is starting, increase age by one of mosquitos
@@ -70,25 +70,32 @@ function main()
             update_mosq(mosqs[i])
         end
     end ##end of time 
-    df[:L] = latent_ctr
-    df[:S] = bite_symp_ctr
-    df[:A] = bite_asymp_ctr
-    df[:SS] = sex_symp_ctr
-    df[:AS] = sex_asymp_ctr
-    return humans, mosqs
+    #df[:L] = latent_ctr
+    #df[:S] = bite_symp_ctr
+    #df[:A] = bite_asymp_ctr
+    #df[:SS] = sex_symp_ctr
+    #df[:AS] = sex_asymp_ctr
+    #return humans, mosqs
     #return df
+    return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr
 end
 
-
-h, m = main()
-dsim = DataFrame()
-simvec = zeros(Int64, 50)
-for i = 1:50
-   
+function run_sims()
+    ## set up dataframes
+    ldf  = DataFrame(Int64, 0, 731)
+    adf  = DataFrame(Int64, 0, 731)
+    sdf  = DataFrame(Int64, 0, 731)
+    ssdf = DataFrame(Int64, 0, 731)
+    asdf = DataFrame(Int64, 0, 731)
+    for i=1:10
+        print("starting simulation $i \n")
+        l, s, a, ss, as = main()
+        push!(ldf, l)
+        push!(sdf, s)
+        push!(adf, a)
+        push!(ssdf, ss)
+        push!(asdf, as)
+    end
 end
- h, m = main()
-    plot(df, x=1:731, y=df[:L])
-    plot(df, x=1:731, y=df[:S])
-plot(df, x=1:731, y=df[:A])
-plot(df, x=1:731, y=df[:SS])
-plot(df, x=1:731, y=df[:AS])
+
+writetable("firstbatch.csv", ldf)

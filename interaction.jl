@@ -4,13 +4,15 @@ function bite_interaction(h::Array{Human}, m::Array{Mosq})
 
   ## on this "day", run through bites
   totalbitestoday = 0
-
+  
+  nonisos = find(x -> x.health != SYMPISO, h)  ## go through humans, and find all humans that are not isolated
+        
   for i=1:length(m)
     willbite = m[i].bitedistribution[m[i].age] ## check if mosquito i will bite on this day
     if willbite == 1
         totalbitestoday += 1
-        ## we need to pick a random person to bite, but this random person must NOT be isolated
-        nonisos = find(x -> x.health != SYMPISO, h)  ## go through humans, and find all humans that are not isolated
+        
+         ## we need to pick a random person to bite, but this random person must NOT be isolated       
         persontobite = rand(nonisos) ## pick a random person from the above list - nonisos
 
         ## run through different scenarios

@@ -28,7 +28,7 @@ type Mosq
 end
 
 
-function setup_humans(a)
+function setup_humans(a::Array{Human})
     ## intialize the array with empty values. 
     ## everyone stats as susceptible, swap is set to null. 
     ## statetime is 999 (longer than 2 year sim time), timeinstate is 0. !
@@ -41,13 +41,13 @@ function setup_humans(a)
     end  # or use a = [Human(SUSC) for i in 1:2]    
 end
 
-function setup_human_demographics(a) # to-do: nothing
+function setup_human_demographics(a::Array{Human}) # to-do: nothing
     ## get the 3-tuple age: (probdistribution, agemin, agemax)
-    cumdist, dist_gend, agemin, agemax = distribution_age() # so d[1] dist, d[2] - age min, d[3] age max 
+    cumdist, dist_gend, agemin, agemax = distribution_age() # so d[1] dist, d[2] - age min, d[3] age max
     for i = 1:length(a)
         #assign age and gender        
         rn = rand()
-        g = minimum(find(x -> rn <= x, cumdist))
+        g = findfirst(x -> rn <= x, cumdist)
 
         age_y = rand(agemin[g]:agemax[g])#Int(round(rand()*(agemax[g] - agemin[g]) + agemin[g]))
         a[i].age = age_y
@@ -60,7 +60,7 @@ function setup_human_demographics(a) # to-do: nothing
     end 
 end
 
-function setup_sexualinteractionthree(h)  
+function setup_sexualinteractionthree(h::Array{Human})  
     ## assign everyone sexual frequency. the function returns 0 if age < 15, so dont deal with it now
     map(x -> x.sexfrequency = calculatesexfrequency(x.age, x.gender), h);
     
@@ -190,6 +190,7 @@ function calculatesexfrequency(age::Int64, sex::GENDER)
     end
     return sexfreq
 end
+
 
 
 function setup_rand_initial_latent(h::Array{Human})
