@@ -32,8 +32,8 @@ function setup_humans(a::Array{Human})
     ## intialize the array with empty values. 
     ## everyone stats as susceptible, swap is set to null. 
     ## statetime is 999 (longer than 2 year sim time), timeinstate is 0. !
-    for i = 1:length(a)
-        a[i] = Human(SUSC, UNDEF, 0,   #health, swap, latentfrom
+    @simd for i = 1:length(a)
+        @inbounds a[i] = Human(SUSC, UNDEF, 0,   #health, swap, latentfrom
                      -1, -1, MALE,       #age, agegroup, all males 
                       999, 0, UNDEF,        #statetime, timeinstate, recoveredfrom      
                       -1, -1, -1,        # partner index, number of sex, sex probability
@@ -41,14 +41,13 @@ function setup_humans(a::Array{Human})
     end  # or use a = [Human(SUSC) for i in 1:2]    
 end
 
-function setup_human_demographics(a::Array{Human}) # to-do: nothing
+function setup_human_demographics(a::Array{Human}) 
     ## get the 3-tuple age: (probdistribution, agemin, agemax)
-    cumdist, dist_gend, agemin, agemax = distribution_age() # so d[1] dist, d[2] - age min, d[3] age max
-    for i = 1:length(a)
+    cumdist, dist_gend, agemin, agemax = distribution_age() 
+    @inbounds for i = 1:length(a)
         #assign age and gender        
         rn = rand()
         g = findfirst(x -> rn <= x, cumdist)
-
         age_y = rand(agemin[g]:agemax[g])#Int(round(rand()*(agemax[g] - agemin[g]) + agemin[g]))
         a[i].age = age_y
         a[i].agegroup = g
@@ -64,12 +63,11 @@ function setup_sexualinteractionthree(h::Array{Human})
     ## assign everyone sexual frequency. the function returns 0 if age < 15, so dont deal with it now
     map(x -> x.sexfrequency = calculatesexfrequency(x.age, x.gender), h);
     
-
-    cntmale = length(find(x -> x.gender == MALE && x.age >= 15, h))
-    cntfemale = length(find(x -> x.gender == FEMALE && x.age >= 15, h))
-
     malein = find(x -> x.gender == MALE && x.age >= 15, h)
     femalein = find(x -> x.gender == FEMALE && x.age >= 15, h)
+
+    cntmale = length(malein)
+    cntfemale = length(femalein)
 
     ## inline if statement.. if cntmale < cntfemale, use malein as the masterindex
     ## this masterindex contains the humans that could be saturated
@@ -77,7 +75,7 @@ function setup_sexualinteractionthree(h::Array{Human})
     largerindex  = cntmale > cntfemale ? malein : femalein
     missedindex = Int64[] # => 0-element Int64 Array
     # GO THROUGH THE SMALLER INDEX
-    for i in smallerindex
+    @inbounds for i in smallerindex
         ## i is the i'th human that needs a partner.
         ag = h[i].age
         ## find all males from the master list, that are suitable.. ie revise it to match the female age. this returns the index of the human that is suitable. 
@@ -114,7 +112,7 @@ function setup_sexualinteractionthree(h::Array{Human})
         assert(1 == 2)
     end
 
-    for i in missedindex
+    @inbounds for i in missedindex
         rnf = rand(1:length(largerindex))
         h[i].partner = largerindex[rnf]
         h[largerindex[rnf]].partner = i
@@ -123,15 +121,16 @@ function setup_sexualinteractionthree(h::Array{Human})
     #return missedindex
 end
 
-function setup_mosquitos(m)   
+
+function setup_mosquitos(m, current_season)   
     ## incoming parameter is the array of Mosquito Type
     for i = 1:length(m)
-        m[i] = create_mosquito()
+        m[i] = create_mosquito(current_season)
         #m[i].age = rand(min(5, m[i].ageofdeath):m[i].ageofdeath)  ## for setting up the world, give them random age
     end    
 end
 
-function setup_mosquito_random_age(m)
+function setup_mosquito_random_age(m, P::ZikaParameters)
     ## pass in mosquito array 
     ## first create a frequnecy distribution based on their lifetimes
     lt = map(x -> x.ageofdeath, m)
@@ -148,16 +147,16 @@ function setup_mosquito_random_age(m)
         age = minimum(find(x -> rn <= x, ctest))
         tage = max(1, min(age, m[i].ageofdeath - 1))
         m[i].age = tage
-
     end
-
+    return nothing
 end
 
-function create_mosquito()
+function create_mosquito(current_season)
     ## intialize the array with empty values. 
     ## all mosquitos start as susceptible, swap is set to null, and infectionfrom is set to null
     m = Mosq(SUSC, UNDEF, -1, -1, 999, 0, UNDEF, -1, [])  ## initialization
     ## setup the age of death - distribution should already be created .. pick the right one
+    local d::Array{Float64, 1} 
     d = current_season == SUMMER ? sdist_lifetimes : wdist_lifetimes  ## current_season defined as a global in main.jl
     rn = rand()
     m.ageofdeath =  minimum(find(x -> rn <= x, d))        
@@ -172,6 +171,16 @@ function create_mosquito()
     return m
 end
 
+function increase_mosquito_age(m::Array{Mosq}, current_season)
+    ## day is starting, increase age by one of mosquitos
+    @inbounds for i=1:length(m)
+        m[i].age += 1
+        if m[i].age > m[i].ageofdeath 
+           @inbounds m[i] = create_mosquito(current_season)
+        end 
+    end
+    return nothing
+end
 
 function calculatesexfrequency(age::Int64, sex::GENDER)
     ## this function calculates sex frequency based on the distribution
@@ -193,11 +202,10 @@ end
 
 
 
-function setup_rand_initial_latent(h::Array{Human})
+function setup_rand_initial_latent(h::Array{Human}, P::ZikaParameters)
   for i=1:P.inital_latent
-    #print("$i \n")
     randperson = rand(1:P.grid_size_human)
-    make_human_latent(h[randperson])
+    make_human_latent(h[randperson], P)
   end
 end
 

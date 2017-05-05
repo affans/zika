@@ -45,7 +45,7 @@ using StatsBase
     prob_infection_MtoH::Float64 = 0.3
     prob_infection_HtoM::Float64 = 0.3
     ProbIsolationSymptomatic::Float64 = 0
-    reduction_factor::Float64 = 0.2
+    reduction_factor::Float64 = 0.1
 end
 
 ## Enums
@@ -86,10 +86,8 @@ function distribution_age()
     ProbBirthAge[16] = 0.014017567
     ProbBirthAge[17] = 0.013796498
 
-    
-    for i=1:17
-        SumProbBirthAge[i] = sum(ProbBirthAge[1:i])
-    end
+    SumProbBirthAge = cumsum(ProbBirthAge)
+ 
         
     ProbMales[1] = 0.094553401
     ProbMales[2] = 0.093693146
@@ -108,10 +106,9 @@ function distribution_age()
     ProbMales[15] = 0.016942028
     ProbMales[16] = 0.012369692
     ProbMales[17] = 0.011638306
-  
-    for i = 1:17
-        ProbMalesCumalative[i] = sum(ProbMales[1:i])
-    end
+    
+    ProbMalesCumalative = cumsum(ProbMales)
+
 
     AgeMin[1] = 1;
     AgeMax[1] = 4;
@@ -167,29 +164,6 @@ function distribution_age()
     return SumProbBirthAge, ProbMalesCumalative, AgeMin, AgeMax
 end
 
-## random gender male/female distribution
-function distribution_gender()
-    ProbMale = Array{Float64}(100)
-    ProbMale[1]  = ProbMale[2]  = ProbMale[3]  = ProbMale[4]  = 0.5115895;
-    ProbMale[5]  = ProbMale[6]  = ProbMale[7]  = ProbMale[8]  = ProbMale[9]  = 0.5111110;
-    ProbMale[10] = ProbMale[11] = ProbMale[12] = ProbMale[13] = ProbMale[14] = 0.5105338;
-    ProbMale[15] = ProbMale[16] = ProbMale[17] = ProbMale[18] = ProbMale[19] = 0.5115023;
-    ProbMale[20] = ProbMale[21] = ProbMale[22] = ProbMale[23] = ProbMale[24] = 0.5117474;
-    ProbMale[25] = ProbMale[26] = ProbMale[27] = ProbMale[28] = ProbMale[29] = 0.5013474;
-    ProbMale[30] = ProbMale[31] = ProbMale[32] = ProbMale[33] = ProbMale[34] = 0.4878720;
-    ProbMale[35] = ProbMale[36] = ProbMale[37] = ProbMale[38] = ProbMale[39] = 0.4848614;
-    ProbMale[40] = ProbMale[41] = ProbMale[42] = ProbMale[43] = ProbMale[44] = 0.4797498;
-    ProbMale[45] = ProbMale[46] = ProbMale[47] = ProbMale[48] = ProbMale[49] = 0.4773869;
-    ProbMale[50] = ProbMale[51] = ProbMale[52] = ProbMale[53] = ProbMale[54] = 0.4758785;
-    ProbMale[55] = ProbMale[56] = ProbMale[57] = ProbMale[58] = ProbMale[59] = 0.4732524;
-    ProbMale[60] = ProbMale[61] = ProbMale[62] = ProbMale[63] = ProbMale[64] = 0.4727012;
-    ProbMale[65] = ProbMale[66] = ProbMale[67] = ProbMale[68] = ProbMale[69] = 0.4678313;
-    ProbMale[70] = ProbMale[71] = ProbMale[72] = ProbMale[73] = ProbMale[74] = 0.4555384;
-    ProbMale[75] = ProbMale[76] = ProbMale[77] = ProbMale[78] = ProbMale[79] = 0.4356684;
-    ProbMale[80] = ProbMale[81] = ProbMale[82] = ProbMale[83] = ProbMale[84] = 0.4164767;
-    ProbMale[85:end] = 0.0
-    return ProbMale
-end
 
 ## male/female sexual frequency
 function distribution_sexfrequency()
@@ -215,7 +189,7 @@ function distribution_sexfrequency()
 end
 
 ## the hazard function for mosquito age death, returns both winter and summer distributions
-function distribution_hazard_function()
+function distribution_hazard_function(P::ZikaParameters)
     
     
     ## parameters for the hazard distribution passed in through the global P variable   
@@ -239,14 +213,14 @@ function distribution_hazard_function()
     hazard_summer(t) = P.aSummer*exp(P.bSummer*(t-1))/(1+P.aSummer*P.sSummer*(exp(P.bSummer*(t-1))-1)/P.bSummer)
     hazard_winter(t) = P.aWinter*exp(P.bWinter*(t-1))/(1+P.aWinter*P.sWinter*(exp(P.bWinter*(t-1))-1)/P.bWinter);
     for t=1:summerlifespan
-        KS[t], E = quadgk(hazard_summer, 0, t)   ## returns a tuple, E is the error
-        summer_SurS[t] = exp(-KS[t])
-        summer_PDFS[t] = hazard_summer(t)*summer_SurS[t]            
+        @inbounds KS[t], E = quadgk(hazard_summer, 0, t)   ## returns a tuple, E is the error
+        @inbounds summer_SurS[t] = exp(-KS[t])
+        @inbounds summer_PDFS[t] = hazard_summer(t)*summer_SurS[t]            
     end
     for t=1:winterlifespan
-        KW[t], E = quadgk(hazard_winter, 0, t)   ## returns a tuple, E is the error
-        winter_SurS[t] = exp(-KW[t])
-        winter_PDFS[t] = hazard_winter(t)*winter_SurS[t]
+        @inbounds KW[t], E = quadgk(hazard_winter, 0, t)   ## returns a tuple, E is the error
+        @inbounds winter_SurS[t] = exp(-KW[t])
+        @inbounds winter_PDFS[t] = hazard_winter(t)*winter_SurS[t]
     end
  
     ## get the cumlative and..
