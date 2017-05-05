@@ -4,15 +4,15 @@
 #workspace()
 #using Gadfly
 #using Plots
-addprocs(64)
+addprocs(2)
 
 @everywhere using DataArrays, DataFrames
 
-@everywhere include("parameters.jl")   ## sets up the parameters
-@everywhere include("functions.jl")
-@everywhere include("entities.jl")     ## sets up functions for human and mosquitos
-@everywhere include("disease.jl")
-@everywhere include("interaction.jl")
+@everywhere include("parameters.jl");   ## sets up the parameters
+@everywhere include("functions.jl");
+@everywhere include("entities.jl");   ## sets up functions for human and mosquitos
+@everywhere include("disease.jl");
+@everywhere include("interaction.jl");
 
 
 @everywhere function main(simulationnumber::Int64, P::ZikaParameters)   
@@ -109,7 +109,6 @@ end
     #print("the calibrated person index is $calibrated_person \n")
     #print("setup completed... starting main simulation timeloop \n")
     
-    
     for t=1:params.sim_time
         increase_mosquito_age(mosqs, current_season)        
         aa, bb = bite_interaction_calibration(humans, mosqs, params)
@@ -123,14 +122,16 @@ end
 end
 
 
-    numberofsims = 200
-    @everywhere transmission = 0.0
-    for i=0.35:0.01:0.70
+    numberofsims = 2
+    @everywhere transmission = 0
+    for i=0.35:0.05:0.36
         transmission = i
-
+        transmission = 1
         ## setup main variables    
-        @everywhere P = ZikaParameters(sim_time = 100, grid_size_human = 100000, grid_size_mosq = 500000, inital_latent = 1, prob_infection_MtoH = transmission, prob_infection_HtoM = transmission, reduction_factor = 0.1)    ## variables defined outside are not available to the functions. 
+        @everywhere P = ZikaParameters(sim_time = 100, grid_size_human = 100000, grid_size_mosq = 500000, inital_latent = 1, prob_infection_MtoH = transmission, prob_infection_HtoM = transmission, reduction_factor = 1)    ## variables defined outside are not available to the functions. 
         results = pmap(x -> main_calibration(x, P), 1:numberofsims)  
+        
+        print(results)
         ## set up dataframes
         ldf  = DataFrame(Int64, 0, P.sim_time)
         adf  = DataFrame(Int64, 0, P.sim_time)
@@ -152,7 +153,7 @@ end
         sumsa = zeros(Int64, numberofsims)
         sumsl = zeros(Int64, numberofsims)
 
-        l = convert(Matrix, ldf)
+        l = convert(Matrix, ldf)        
         s = convert(Matrix, sdf)
         a=  convert(Matrix, adf)
 
@@ -162,7 +163,11 @@ end
             sumsl[i] = sum(l[i, :])
         end
         totalavg = sum(sumss)/numberofsims
-        
+        print("transmission: $transmission \n")
+        print("total symptomatics: $(sum(sumss))")
+        print("\n")
+        print("R0: $totalavg")
+        print("\n")
         resarr = Array{Number}(8)
         resarr[1] = P.prob_infection_MtoH
         resarr[2] = P.prob_infection_HtoM
