@@ -164,7 +164,7 @@ end
         totalavg = sum(sumss)/numberofsims
         print("\n")
         print("Summary: \n")    
-        print("transmission: $(P.prob_infection_MtoH) and reduction: $transmission \n")
+        print("transmission: $(P.prob_infection_MtoH) and reduction: $(P.reduction_factor) \n")
         print("Total number of simulations: $numberofsims \n")
         print("Total number of symps: $(sum(sumss)) \n")
         print("Total number of sympa: $(sum(sumsa)) \n")
