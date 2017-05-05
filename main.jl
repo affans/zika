@@ -162,15 +162,17 @@ end
             sumsl[i] = sum(l[i, :])
         end
         totalavg = sum(sumss)/numberofsims
-        print("\n")
-        print("Summary: \n")    
-        print("transmission: $(P.prob_infection_MtoH) and reduction: $(P.reduction_factor) \n")
-        print("Total number of simulations: $numberofsims \n")
-        print("Total number of symps: $(sum(sumss)) \n")
-        print("Total number of sympa: $(sum(sumsa)) \n")
-        print("Total number of sympl: $(sum(sumsl)) \n")
-        print("Calculated RO: $totalavg \n")
-        print("\n")
+        
+        resarr = Array{Number}(8)
+        resarr[1] = P.prob_infection_MtoH
+        resarr[2] = P.prob_infection_HtoM
+        resarr[3] = P.reduction_factor
+        resarr[4] = numberofsims
+        resarr[5] = sum(sumss)
+        resarr[6] = sum(sumsa)
+        resarr[7] = sum(sumsl)
+        resarr[8] = totalavg 
+        writedlm("test.txt", resarr)
     end
 
       
