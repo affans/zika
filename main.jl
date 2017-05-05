@@ -4,7 +4,7 @@
 #workspace()
 #using Gadfly
 #using Plots
-addprocs(8)
+addprocs(64)
 
 @everywhere using DataArrays, DataFrames
 
@@ -123,13 +123,13 @@ end
 end
 
 
-    numberofsims = 8
+    numberofsims = 200
     @everywhere transmission = 0.0
     for i=0.35:0.01:0.70
         transmission = i
 
         ## setup main variables    
-        @everywhere P = ZikaParameters(sim_time = 100, grid_size_human = 1000, grid_size_mosq = 5000, inital_latent = 1, prob_infection_MtoH = transmission, prob_infection_HtoM = transmission, reduction_factor = 0.1)    ## variables defined outside are not available to the functions. 
+        @everywhere P = ZikaParameters(sim_time = 100, grid_size_human = 100000, grid_size_mosq = 500000, inital_latent = 1, prob_infection_MtoH = transmission, prob_infection_HtoM = transmission, reduction_factor = 0.1)    ## variables defined outside are not available to the functions. 
         results = pmap(x -> main_calibration(x, P), 1:numberofsims)  
         ## set up dataframes
         ldf  = DataFrame(Int64, 0, P.sim_time)
