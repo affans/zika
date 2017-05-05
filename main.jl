@@ -4,7 +4,7 @@
 #workspace()
 #using Gadfly
 #using Plots
-addprocs(8)
+addprocs(64)
 
 @everywhere using DataArrays, DataFrames
 
