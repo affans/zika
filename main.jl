@@ -172,7 +172,8 @@ end
         resarr[6] = sum(sumsa)
         resarr[7] = sum(sumsl)
         resarr[8] = totalavg 
-        writedlm("test.txt", resarr)
+        filename = string("file-", i, ".txt")
+        writedlm(filename, resarr)
     end
 
       
