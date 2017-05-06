@@ -29,6 +29,7 @@ end
 
 
 function setup_humans(a::Array{Human})
+    #print("running human setup on process: $(myid()) \n")
     ## intialize the array with empty values. 
     ## everyone stats as susceptible, swap is set to null. 
     ## statetime is 999 (longer than 2 year sim time), timeinstate is 0. !
@@ -172,6 +173,7 @@ function create_mosquito(current_season)
 end
 
 function increase_mosquito_age(m::Array{Mosq}, current_season)
+    #print("increasemosquitoage() from process: $(myid()) \n")
     ## day is starting, increase age by one of mosquitos
     @inbounds for i=1:length(m)
         m[i].age += 1

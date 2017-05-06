@@ -81,18 +81,18 @@ end
 function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
   ## This function considers the main interaction of the model 
   ## idea: go through all mosquitos, and see if they will bite on their 
-
+  #latent_ctr[1] += 1
+  #print("bite_interaction() from process: $(myid()) with calibrated: $calibrated_person \n")
+  #print("process: $(myid())  calibrated health: $(h[calibrated_person].health) \n")
+  #print("What is P? $(P.prob_infection_HtoM) and reduction: $(P.reduction_factor) \n")
   ## on this "day", run through bites
+  #print("health of calibrated person: $(h[calibrated_person].health) \n")
   totalbitestoday = 0
   newmosquitos = 0
-  
   nonisos = find(x -> x.health != SYMPISO, h)  ## go through humans, and find all humans that are not isolated
-        
   for i=1:length(m)
     willbite = m[i].bitedistribution[m[i].age] ## check if mosquito i will bite on this day
-    if willbite == 1
-        
-        
+    if willbite == 1       
          ## we need to pick a random person to bite, but this random person must NOT be isolated       
         persontobite = rand(nonisos) ## pick a random person from the above list - nonisos
         
@@ -109,9 +109,8 @@ function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaPa
 
         ## 2) infected person - susceptible mosquito
         if (h[persontobite].health == SYMP || h[persontobite].health == ASYMP) && m[i].health == SUSC && persontobite == calibrated_person
-          if persontobite == calibrated_person                         
-            totalbitestoday += 1  ## count how many times the calibrated person has been bit
-          end
+          totalbitestoday += 1
+          
           #print("Transfer must happen \n")
           rn = rand()   # pick a random number
           if h[persontobite].health == SYMP 
@@ -121,6 +120,8 @@ function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaPa
           end
           rn = rand()
           if rn < proboftransfer ## mosquito gets infected
+            #print("mosquito is latent...on process: $(myid()) \n")      
+                        
             m[i].swap = LAT
             newmosquitos += 1  ## if a mosquito gets sick because of the initial latent, increase the coount
           end    

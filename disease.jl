@@ -24,6 +24,9 @@ function increase_timestate(m::Mosq)
   if m.timeinstate > m.statetime
     if m.health == LAT 
       m.swap = SYMP
+      #print("mosquito has swapped -> sympotmatic \n")
+      #biteleft = m.bitedistribution[m.age:m.ageofdeath]
+      #print("bitedistribution: $biteleft \n")
     else 
       print("timeinstate expired for a susceptible OR recovered mosquito")
       assert(2==1)
@@ -37,6 +40,7 @@ function start_sex(h::Human)
   if h.sexfrequency >= 0 && h.age >= 15 && h.partner > -1     
     h.cumalativedays = 0
     h.cumalativesex = 0
+    ### beta_sex in the paper
     h.sexprobability = rand()*(0.03 - 0.01) + 0.01
   end 
 end
@@ -59,7 +63,9 @@ function make_human_latent(h::Human, P::ZikaParameters)
   h.health = LAT    # make the health -> latent
   ## state time has to be calculated from the lognormal distribution
   d = LogNormal(P.h_lognormal_latent_shape, P.h_lognormal_latent_scale)
-  h.statetime = min(Int(ceil(rand(d))), P.h_latency_max)
+  h.statetime = max(4, min(Int(ceil(rand(d))), P.h_latency_max))
+  #h.statetime = min(Int(ceil(rand(d))), P.h_latency_max)
+  
 end
 
 
@@ -68,8 +74,8 @@ function make_human_sympisolated(h::Human, P::ZikaParameters)
   
   ## state time has to be calculated from the lognormal distribution
   d = LogNormal(P.h_lognormal_symptomatic_shape, P.h_lognormal_symptomatic_scale)
-  h.statetime = min(Int(ceil(rand(d))), P.h_symptomatic_max)
-
+  h.statetime = max(3, min(Int(ceil(rand(d))), P.h_symptomatic_max))
+  ## if the human is infected, start sex
   start_sex(h)  
 end
 
@@ -77,7 +83,8 @@ function make_human_symptomatic(h::Human, P::ZikaParameters)
   h.health = SYMP    # make the health -> symptomatic
   ## state time has to be calculated from the lognormal distribution
   d = LogNormal(P.h_lognormal_symptomatic_shape, P.h_lognormal_symptomatic_scale)
-  h.statetime = min(Int(ceil(rand(d))), P.h_symptomatic_max)
+  h.statetime = max(3, min(Int(ceil(rand(d))), P.h_symptomatic_max))
+  ## if the human is infected, start sex
   start_sex(h)
 end
 
@@ -86,7 +93,7 @@ function make_human_asymptomatic(h::Human, P::ZikaParameters)
   h.health = ASYMP    # make the health -> asymptomatic  
   ## state time has to be calculated from the lognormal distribution
   d = LogNormal(P.h_lognormal_symptomatic_shape, P.h_lognormal_symptomatic_scale)
-  h.statetime = min(Int(ceil(rand(d))), P.h_symptomatic_max)  ## symptomatic same as asymptomatic
+  h.statetime = max(3, min(Int(ceil(rand(d))), P.h_symptomatic_max))  ## symptomatic same as asymptomatic
   start_sex(h)
 end
 
@@ -105,7 +112,7 @@ function make_mosquito_latent(m::Mosq, P::ZikaParameters)
   
   ## state time has to be calculated from the lognormal distribution
   d = LogNormal(P.m_lognormal_latent_shape, P.m_lognormal_latent_scale)
-  m.statetime = min(Int(floor(rand(d))), P.m_latency_max)
+  m.statetime = max(P.m_latency_min, min(Int(floor(rand(d))), P.m_latency_max))
 end
 
 function make_mosquito_symptomatic(m::Mosq)
@@ -132,8 +139,8 @@ function update_human(i::Int64, h::Human, timestep::Int64, P::ZikaParameters)
     if h.swap == LAT 
       latent_ctr[timestep] += 1
       make_human_latent(h, P)      
-    elseif h.swap == SYMP  && i != calibrated_person
-      if h.latentfrom == 1
+    elseif h.swap == SYMP
+      if h.latentfrom == 1 && i != calibrated_person
         bite_symp_ctr[max(1, timestep - h.statetime - 1)] += 1
       elseif h.latentfrom == 2
         sex_symp_ctr[max(1, timestep - h.statetime - 1)] += 1     
@@ -169,6 +176,8 @@ function update_mosq(m::Mosq, P::ZikaParameters)
   if m.swap != UNDEF 
     if m.swap == LAT 
       make_mosquito_latent(m, P)
+      #print("... mosquito age: $(m.age) \n") 
+      #print("... mosquito ageofdeath: $(m.ageofdeath) \n") 
     elseif m.swap == SYMP
       make_mosquito_symptomatic(m)
     end
