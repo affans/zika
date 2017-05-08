@@ -46,12 +46,15 @@ using StatsBase
     prob_infection_HtoM::Float64 = 0.3
     ProbIsolationSymptomatic::Float64 = 0
     reduction_factor::Float64 = 0.1
+
+    condom_reduction::Float64 = 0.0
+
 end
 
 ## Enums
 @enum HEALTH SUSC=1 LAT=2 ASYMP=3 SYMP=4 SYMPISO=5 REC=6 DEAD=7 UNDEF=0
 @enum GENDER MALE=1 FEMALE=2
-@enum SEASON SUMMER=1 WINTER=2
+@enum SEASON SUMMER=1 WINTER=-1
 
 
 

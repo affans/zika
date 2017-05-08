@@ -175,6 +175,7 @@ end
 function increase_mosquito_age(m::Array{Mosq}, current_season)
     #print("increasemosquitoage() from process: $(myid()) \n")
     ## day is starting, increase age by one of mosquitos
+    # print("current season: $current_season \n")
     @inbounds for i=1:length(m)
         m[i].age += 1
         if m[i].age > m[i].ageofdeath 
@@ -201,8 +202,6 @@ function calculatesexfrequency(age::Int64, sex::GENDER)
     end
     return sexfreq
 end
-
-
 
 function setup_rand_initial_latent(h::Array{Human}, P::ZikaParameters)
   for i=1:P.inital_latent

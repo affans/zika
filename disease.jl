@@ -41,7 +41,7 @@ function start_sex(h::Human)
     h.cumalativedays = 0
     h.cumalativesex = 0
     ### beta_sex in the paper
-    h.sexprobability = rand()*(0.03 - 0.01) + 0.01
+    h.sexprobability = rand()*(0.05 - 0.01) + 0.01
   end 
 end
 
@@ -140,7 +140,8 @@ function update_human(i::Int64, h::Human, timestep::Int64, P::ZikaParameters)
       latent_ctr[timestep] += 1
       make_human_latent(h, P)      
     elseif h.swap == SYMP
-      if h.latentfrom == 1 && i != calibrated_person
+      ## ADD FOR CALIBRATION
+      if h.latentfrom == 1 
         bite_symp_ctr[max(1, timestep - h.statetime - 1)] += 1
       elseif h.latentfrom == 2
         sex_symp_ctr[max(1, timestep - h.statetime - 1)] += 1     
@@ -153,8 +154,8 @@ function update_human(i::Int64, h::Human, timestep::Int64, P::ZikaParameters)
         sex_symp_ctr[max(1, timestep - h.statetime - 1)] += 1      
       end   
       make_human_sympisolated(h, P)
-    elseif h.swap == ASYMP 
-      if h.latentfrom == 1
+    elseif h.swap == ASYMP      
+      if h.latentfrom == 1 
         bite_asymp_ctr[max(1, timestep - h.statetime - 1)] += 1
       elseif h.latentfrom == 2
         sex_asymp_ctr[max(1, timestep - h.statetime - 1)] += 1              

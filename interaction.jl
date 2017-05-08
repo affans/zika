@@ -61,9 +61,10 @@ function sexual_interaction(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
           h[i].cumalativesex += 1
 
           if h[i].health == SYMP || h[i].health == SYMPISO || h[i].recoveredfrom == SYMP || h[i].recoveredfrom == SYMPISO
-            proboftransmission = h[i].sexprobability
+            proboftransmission = h[i].sexprobability*(1 - P.condom_reduction)
           elseif h[i].health == ASYMP || h[i].recoveredfrom == ASYMP
-            proboftransmission = h[i].sexprobability*P.reduction_factor          
+            ## asymptomatic dont use condoms, they dont know.
+            proboftransmission = h[i].sexprobability*P.reduction_factor        
           end
           
           ## roll dice to see if person gets infected
