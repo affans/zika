@@ -5,7 +5,7 @@
 #using Gadfly
 #using Plots
 
-addprocs(60)
+addprocs(62)
 
 using DataArrays, DataFrames
 using ProgressMeter
@@ -69,12 +69,6 @@ using PmapProgressMeter
     writedlm(fname, [latent_ctr bite_symp_ctr bite_asymp_ctr sex_symp_ctr sex_asymp_ctr])
     return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr
 end
-#numsims = 5
-##l = convert(Matrix, ldf)
-#a = convert(Matrix, sdf)
-#b = convert(Matrix, adf)
-
-#
 
 @everywhere function main_calibration(cb, simulationnumber::Int64, P::ZikaParameters)   
     #print("starting calibration $simulationnumber on process $(myid()) \n")    
@@ -128,87 +122,90 @@ end
 end
 
 
-## MAIN CODE
+##### MAIN CODE
+numberofsims = 2000   ## setup number of simulations to pass to pmap (parallel map)
+## set transmission. Then send to all of the workers. 
+@everywhere transmission = 0.352  
+sendto(workers(), transmission = 0.352) 
 
-# numberofsims = 1000
-# #@everywhere transmission = 0.6237
-# #sendto(workers(), transmission = 0.6237 )
-# @everywhere transmission = 0.395
-# sendto(workers(), transmission = 0.395 )
+## setup main Zika Parameters  
+@everywhere P = ZikaParameters(sim_time = 1456, grid_size_human = 10000, grid_size_mosq = 50000, inital_latent = 1, prob_infection_MtoH = transmission, prob_infection_HtoM = transmission, reduction_factor = 0.3, ProbIsolationSymptomatic = 0.1, condom_reduction = 0.0)    ## variables defined outside are not available to the functions. 
 
-# ## setup main variables    
-# @everywhere P = ZikaParameters(sim_time = 728, grid_size_human = 10000, grid_size_mosq = 50000, inital_latent = 1, prob_infection_MtoH = transmission, prob_infection_HtoM = transmission, reduction_factor = 0.1)    ## variables defined outside are not available to the functions. 
-# #results = pmap(x -> main(n -> n, x, P), 1:numberofsims) 
-# print("starting pmap...\n") 
-# ## cb is the callback function
-# results = pmap((cb, x) -> main(cb, x, P), Progress(numberofsims*P.sim_time), 1:numberofsims, passcallback=true)
+print("Parameters: \n $P \n")  ## prints to STDOUT - redirect to logfile
+print("starting pmap...\n") 
 
-numberofsims = 500
-@everywhere transmission = 0.0
-for j=0.32:-0.01:0.28
-    #@broadcast testi = 0.35
-    #sendto(workers(), transmission = 0.625 ) ## 0.1
-    #sendto(workers(), transmission = (0.545 - (j - 1)*0.01) )
-    transmission = j;
-    sendto(workers(), transmission = j)
-    #sendto(workers(), transmission = 0.6237 )
+# cb is the callback function. It updates the progress bar
+results = pmap((cb, x) -> main(cb, x, P), Progress(numberofsims*P.sim_time), 1:numberofsims, passcallback=true)
+
+### CALIBRATION CODE
+
+#  numberofsims = 500
+#  @everywhere transmission = 0.0
+#  for j=0.43:-0.01:0.40
+#     #@broadcast testi = 0.35
+#     #sendto(workers(), transmission = 0.625 ) ## 0.1
+#     #sendto(workers(), transmission = (0.545 - (j - 1)*0.01) )
+#     transmission = j;
+#     sendto(workers(), transmission = j)
+#     #sendto(workers(), transmission = 0.6237 )
     
   
-    ## setup main variables    
-    @everywhere P = ZikaParameters(sim_time = 100, grid_size_human = 10000, grid_size_mosq = 50000, inital_latent = 1, prob_infection_MtoH = transmission, prob_infection_HtoM = transmission, reduction_factor = 0.4)    ## variables defined outside are not available to the functions. 
+#     ## setup main variables    
+#     @everywhere P = ZikaParameters(sim_time = 100, grid_size_human = 10000, grid_size_mosq = 20000, inital_latent = 1, prob_infection_MtoH = transmission, prob_infection_HtoM = transmission, reduction_factor = 0.9)    ## variables defined outside are not available to the functions. 
     
-    print("parameters: \n $P \n")
-    #results = pmap(x -> main(x, P), 1:numberofsims)      
-    results = pmap((cb, x) -> main_calibration(cb, x, P), Progress(numberofsims*P.sim_time), 1:numberofsims, passcallback=true)
-    ## set up dataframes
-    ldf  = DataFrame(Int64, 0, P.sim_time)
-    adf  = DataFrame(Int64, 0, P.sim_time)
-    sdf  = DataFrame(Int64, 0, P.sim_time)
-    ssdf = DataFrame(Int64, 0, P.sim_time)
-    asdf = DataFrame(Int64, 0, P.sim_time)
+#     print("parameters: \n $P \n")
+#     #results = pmap(x -> main(x, P), 1:numberofsims)      
+#     results = pmap((cb, x) -> main_calibration(cb, x, P), Progress(numberofsims*P.sim_time), 1:numberofsims, passcallback=true)
+#     ## set up dataframes
+#     ldf  = DataFrame(Int64, 0, P.sim_time)
+#     adf  = DataFrame(Int64, 0, P.sim_time)
+#     sdf  = DataFrame(Int64, 0, P.sim_time)
+#     ssdf = DataFrame(Int64, 0, P.sim_time)
+#     asdf = DataFrame(Int64, 0, P.sim_time)
     
-    #load up dataframes
-    for i=1:numberofsims
-        push!(ldf, results[i][1])
-        push!(sdf, results[i][2])
-        push!(adf, results[i][3])
-        push!(ssdf,results[i][4])
-        push!(asdf, results[i][5])
-    end        
+#     #load up dataframes
+#     for i=1:numberofsims
+#         push!(ldf, results[i][1])
+#         push!(sdf, results[i][2])
+#         push!(adf, results[i][3])
+#         push!(ssdf,results[i][4])
+#         push!(asdf, results[i][5])
+#     end        
 
-    ## for calibration
-    sumss = zeros(Int64, numberofsims)
-    sumsa = zeros(Int64, numberofsims)
-    sumsl = zeros(Int64, numberofsims)
+#     ## for calibration
+#     sumss = zeros(Int64, numberofsims)
+#     sumsa = zeros(Int64, numberofsims)
+#     sumsl = zeros(Int64, numberofsims)
 
-    l = convert(Matrix, ldf)        
-    s = convert(Matrix, sdf)
-    a=  convert(Matrix, adf)
+#     l = convert(Matrix, ldf)        
+#     s = convert(Matrix, sdf)
+#     a=  convert(Matrix, adf)
 
-    for i=1:numberofsims
-        sumss[i] = sum(s[i, :])
-        sumsa[i] = sum(a[i, :])
-        sumsl[i] = sum(l[i, :])
-    end
-    totalavg_symp = sum(sumss)/numberofsims
-    totalavg_lat = sum(sumsl)/numberofsims
-    # print("averaging on process: $(myid()) \n")
-    # print("transmission: $transmission (or $j) \n")
-    # print("total symptomatics: $(sum(sumss)) \n")
-    # print("\n")
-    # print("R0: $totalavg")
-    # print("\n")
-    resarr = Array{Number}(9)
-    resarr[1] = j
-    resarr[2] = j
-    resarr[3] = P.reduction_factor
-    resarr[4] = numberofsims
-    resarr[5] = sum(sumss)
-    resarr[6] = sum(sumsa)
-    resarr[7] = sum(sumsl)
-    resarr[8] = totalavg_symp
-    resarr[9] = totalavg_lat 
+#     for i=1:numberofsims
+#         sumss[i] = sum(s[i, :])
+#         sumsa[i] = sum(a[i, :])
+#         sumsl[i] = sum(l[i, :])
+#     end
+#     totalavg_symp = sum(sumss)/numberofsims
+#     totalavg_lat = sum(sumsl)/numberofsims
+#     # print("averaging on process: $(myid()) \n")
+#     # print("transmission: $transmission (or $j) \n")
+#     # print("total symptomatics: $(sum(sumss)) \n")
+#     # print("\n")
+#     print("R0: $totalavg_lat \n")
+#     print("\n")
+#     # print("\n")
+#     resarr = Array{Number}(9)
+#     resarr[1] = j
+#     resarr[2] = j
+#     resarr[3] = P.reduction_factor
+#     resarr[4] = numberofsims
+#     resarr[5] = sum(sumss)
+#     resarr[6] = sum(sumsa)
+#     resarr[7] = sum(sumsl)
+#     resarr[8] = totalavg_symp
+#     resarr[9] = totalavg_lat 
      
-    filename = string("file-", j, "-",  transmission, ".txt")
-    writedlm(filename, resarr)
-end
+#     filename = string("file-", j, "-",  transmission, "_", P.reduction_factor, ".txt")
+#     writedlm(filename, resarr)
+# end

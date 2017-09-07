@@ -4,9 +4,10 @@ function increase_timestate(h::Human, P::ZikaParameters)
     if h.health == LAT 
       ## if they are latent, switch to asymp/symp
       rn = rand()*(P.ProbLatentToASymptomaticMax - P.ProbLatentToASymptomaticMin) + P.ProbLatentToASymptomaticMin
+      ## human is going to asymptomatic
       if rand() < rn 
         h.swap = ASYMP
-      else 
+      else ## human is going to symptomatic -- check if we isolate
         if rand() < P.ProbIsolationSymptomatic
           h.swap = SYMPISO
         else 
