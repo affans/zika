@@ -4,6 +4,7 @@
 #workspace()
 #using Gadfly
 #using Plots
+# Thomas is now an editor of this code.
 
 addprocs(62)
 
@@ -206,6 +207,12 @@ results = pmap((cb, x) -> main(cb, x, P), Progress(numberofsims*P.sim_time), 1:n
 #     resarr[8] = totalavg_symp
 #     resarr[9] = totalavg_lat 
      
+<<<<<<< HEAD
 #     filename = string("file-", j, "-",  transmission, "_", P.reduction_factor, ".txt")
 #     writedlm(filename, resarr)
 # end
+=======
+    filename = string("file-", j, "-",  transmission, ".txt")
+    writedlm(filename, resarr)
+end
+>>>>>>> c25b4c3ad1cb9c04f1f602a1f3e0ede3b372f787
