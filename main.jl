@@ -4,6 +4,8 @@
 #workspace()
 #using Gadfly
 #using Plots
+# Thomas is now an editor of this code.
+
 
 addprocs(60)
 
