@@ -19,7 +19,6 @@ using PmapProgressMeter
 @everywhere include("disease.jl");
 @everywhere include("interaction.jl");
 
-
 @everywhere function main(cb, simulationnumber::Int64, P::ZikaParameters)   
     #print("starting simulation $simulationnumber \n")
         
@@ -207,10 +206,6 @@ results = pmap((cb, x) -> main(cb, x, P), Progress(numberofsims*P.sim_time), 1:n
 #     resarr[9] = totalavg_lat 
      
 <<<<<<< HEAD
-#     filename = string("file-", j, "-",  transmission, "_", P.reduction_factor, ".txt")
-#     writedlm(filename, resarr)
-# end
-=======
     filename = string("file-", j, "-",  transmission, ".txt")
     writedlm(filename, resarr)
 end
