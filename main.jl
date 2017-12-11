@@ -5,13 +5,17 @@
 #using Gadfly
 #using Plots
 
-addprocs(62)
+addprocs(20)
 
-using DataArrays, DataFrames
 using ProgressMeter
 using PmapProgressMeter
-
+@everywhere using DataArrays, DataFrames
+@everywhere using Match
 @everywhere using ParallelDataTransfer
+@everywhere using QuadGK
+@everywhere using Parameters #module
+@everywhere using Distributions
+@everywhere using StatsBase
 
 @everywhere include("parameters.jl");   ## sets up the parameters
 @everywhere include("functions.jl");
@@ -20,53 +24,58 @@ using PmapProgressMeter
 @everywhere include("interaction.jl");
 
 @everywhere function main(cb, simulationnumber::Int64, P::ZikaParameters)   
-    #print("starting simulation $simulationnumber \n")
         
-    params = P  ## store the incoming parameters in a local variable
+    
     ## the grids for humans and mosquitos
-    humans = Array{Human}(params.grid_size_human)
-    mosqs  = Array{Mosq}(params.grid_size_mosq)
+    humans = Array{Human}(P.grid_size_human)
+    mosqs  = Array{Mosq}(P.grid_size_mosq)
     
     ## current season
     current_season = SUMMER   #current season
 
     ## before running the main setups, make sure distributions are setup, make these variables global
-    sdist_lifetimes, wdist_lifetimes = distribution_hazard_function(params)  #summer/winter mosquito lifetimes
+    sdist_lifetimes, wdist_lifetimes = distribution_hazard_function(P)  #summer/winter mosquito lifetimes
     global sdist_lifetimes
     global wdist_lifetimes
 
     
-    global latent_ctr = zeros(Int64, params.sim_time)
-    global bite_symp_ctr = zeros(Int64, params.sim_time)
-    global bite_asymp_ctr = zeros(Int64, params.sim_time)    
-    global sex_symp_ctr = zeros(Int64, params.sim_time)
-    global sex_asymp_ctr = zeros(Int64, params.sim_time)
+    global latent_ctr = zeros(Int64, P.sim_time)
+    global bite_symp_ctr = zeros(Int64, P.sim_time)
+    global bite_asymp_ctr = zeros(Int64, P.sim_time)    
+    global sex_symp_ctr = zeros(Int64, P.sim_time)
+    global sex_asymp_ctr = zeros(Int64, P.sim_time)
+    global preg_symp_ctr = zeros(Int64, P.sim_time)
+    global micro_ctr = zeros(Int64, P.sim_time)
+    global vac_gen_ctr = zeros(Int64, P.sim_time)
+    global vac_pre_ctr = zeros(Int64, P.sim_time)
     
-    setup_humans(humans)              ## initializes the empty array
-    setup_human_demographics(humans)  ## setup age distribution, male/female 
-    setup_sexualinteractionthree(humans)   ## setup sexual frequency, and partners
-    setup_mosquitos(mosqs, current_season)
-    setup_mosquito_random_age(mosqs, params)
-    setup_rand_initial_latent(humans, params)
-    #print("setup completed... starting main simulation timeloop \n")
+    setup_humans(humans)                      ## initializes the empty array
+    setup_human_demographics(humans)          ## setup age distribution, male/female 
+    setup_pregnant_women(humans, P)
+    setup_vaccination(humans, P)              ## setup initial vaccination if coverage is more than 0
+    setup_sexualinteractionthree(humans)      ## setup sexual frequency, and partners
+    setup_mosquitos(mosqs, current_season)    ## setup the mosquito array, including bite distribution
+    setup_mosquito_random_age(mosqs, P)  ## assign age and age of death to mosquitos
+    setup_rand_initial_latent(humans, P) ## introduce initial latent person
     
-    ## run tests at this point to make sure humans and 
-    for t=1:params.sim_time
+    ## the main time loop
+    for t=1:P.sim_time
         if mod(t, 182) == 0
             current_season = SEASON(Int(current_season) * -1)
         end 
         increase_mosquito_age(mosqs, current_season)
-        bite_interaction(humans, mosqs, params)
-        sexual_interaction(humans, mosqs, params)
-        timeinstate_plusplus(humans, mosqs, t, params)
+        bite_interaction(humans, mosqs, P)
+        sexual_interaction(humans, mosqs, P)
+        pregnancy_and_vaccination(humans, t, P) 
+        timeinstate_plusplus(humans, mosqs, t, P)        
         cb(1) ## increase the progress metre by 1.. callback function
     end ##end of time 
 
     fname = string("simulation-",simulationnumber, ".dat") 
     
     #writedlm(fname, [latent_ctr, bite_symp_ctr, bite_asymp_ctr])
-    writedlm(fname, [latent_ctr bite_symp_ctr bite_asymp_ctr sex_symp_ctr sex_asymp_ctr])
-    return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr
+    writedlm(fname, [latent_ctr bite_symp_ctr bite_asymp_ctr sex_symp_ctr sex_asymp_ctr preg_symp_ctr micro_ctr vac_gen_ctr vac_pre_ctr])
+    return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr, preg_symp_ctr, micro_ctr, vac_gen_ctr, vac_pre_ctr
 end
 
 @everywhere function main_calibration(cb, simulationnumber::Int64, P::ZikaParameters)   
@@ -116,19 +125,18 @@ end
     end ##end of time 
     
     return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr
-    #return ihts, ihta
-    #return 2
+
 end
 
 
 ##### MAIN CODE
-numberofsims = 2000   ## setup number of simulations to pass to pmap (parallel map)
+numberofsims = 10   ## setup number of simulations to pass to pmap (parallel map)
 ## set transmission. Then send to all of the workers. 
 @everywhere transmission = 0.352  
 sendto(workers(), transmission = 0.352) 
 
 ## setup main Zika Parameters  
-@everywhere P = ZikaParameters(sim_time = 1456, grid_size_human = 10000, grid_size_mosq = 50000, inital_latent = 1, prob_infection_MtoH = transmission, prob_infection_HtoM = transmission, reduction_factor = 0.3, ProbIsolationSymptomatic = 0.1, condom_reduction = 0.0)    ## variables defined outside are not available to the functions. 
+@everywhere P = ZikaParameters(sim_time = 364, grid_size_human = 10000, grid_size_mosq = 50000, inital_latent = 1, prob_infection_MtoH = transmission, prob_infection_HtoM = transmission, reduction_factor = 0.3, ProbIsolationSymptomatic = 0.1, condom_reduction = 0.0)    ## variables defined outside are not available to the functions. 
 
 print("Parameters: \n $P \n")  ## prints to STDOUT - redirect to logfile
 print("starting pmap...\n") 
@@ -204,9 +212,4 @@ results = pmap((cb, x) -> main(cb, x, P), Progress(numberofsims*P.sim_time), 1:n
 #     resarr[7] = sum(sumsl)
 #     resarr[8] = totalavg_symp
 #     resarr[9] = totalavg_lat 
-     
-<<<<<<< HEAD
-    filename = string("file-", j, "-",  transmission, ".txt")
-    writedlm(filename, resarr)
-end
->>>>>>> c25b4c3ad1cb9c04f1f602a1f3e0ede3b372f787
+ 

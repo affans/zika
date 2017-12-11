@@ -1,3 +1,8 @@
+##############################################
+####### HELPER FUNCTIONS FOR DISEASE DYNAMICS#
+##############################################
+
+## for a human, increase their time in a particular state, and if they are expiring move them to symp/asymp
 function increase_timestate(h::Human, P::ZikaParameters)
   h.timeinstate += 1
   if h.timeinstate > h.statetime ## they have expired, and moving compartnments
@@ -20,6 +25,7 @@ function increase_timestate(h::Human, P::ZikaParameters)
   end
 end
 
+## This function switches a mosquito from the latent stage to symptomatic
 function increase_timestate(m::Mosq)
   m.timeinstate += 1
   if m.timeinstate > m.statetime
@@ -37,7 +43,7 @@ function increase_timestate(m::Mosq)
 end
 
 function start_sex(h::Human)
-  ## check if they have a preassigned frequency
+  ## check if they have a >0 frequency, are over 15 years old, and have a partner
   if h.sexfrequency >= 0 && h.age >= 15 && h.partner > -1     
     h.cumalativedays = 0
     h.cumalativesex = 0
@@ -46,33 +52,24 @@ function start_sex(h::Human)
   end 
 end
 
+## the probability of having sex everyday, this approaches one by the end of the week
 function calculate_sexprob(h::Human)
   retval = (h.sexfrequency - h.cumalativesex)/(7 - h.cumalativedays)
   h.cumalativedays += 1
   return retval
 end
 
-
-#find(x -> x.sexfrequency >= 0 && x.age >= 15 && x.partner > -1 && x.cumalativesex > -1, humans)
-# map(start_sex, humans)
-# a = map(calculate_sexprob, humans)
-
-
 function make_human_latent(h::Human, P::ZikaParameters)
     ## make the i'th human latent
-
   h.health = LAT    # make the health -> latent
   ## state time has to be calculated from the lognormal distribution
   d = LogNormal(P.h_lognormal_latent_shape, P.h_lognormal_latent_scale)
-  h.statetime = max(4, min(Int(ceil(rand(d))), P.h_latency_max))
-  #h.statetime = min(Int(ceil(rand(d))), P.h_latency_max)
-  
+  h.statetime = max(4, min(Int(ceil(rand(d))), P.h_latency_max))  
 end
 
 
 function make_human_sympisolated(h::Human, P::ZikaParameters)
-  h.health = SYMPISO
-  
+  h.health = SYMPISO  
   ## state time has to be calculated from the lognormal distribution
   d = LogNormal(P.h_lognormal_symptomatic_shape, P.h_lognormal_symptomatic_scale)
   h.statetime = max(3, min(Int(ceil(rand(d))), P.h_symptomatic_max))
@@ -102,15 +99,14 @@ function make_human_recovered(h::Human, P::ZikaParameters)
   ## make the i'th human recovered 
   ##  extra step - record if this human recovered from asymptomatic or symptomatic
   h.recoveredfrom = h.health
-  h.health = REC    # make the health -> recovered  
-  h.statetime = 999  ## symptomatic same as asymptomatic
+  h.health = REC     # make the health -> recovered  
+  h.statetime = 999  ## no expiry time for recovered individuals, they are always recovered
 end
 
 
 function make_mosquito_latent(m::Mosq, P::ZikaParameters)
   ## make the i'th human latent
-  m.health = LAT    # make the health -> latent
-  
+  m.health = LAT    # make the health -> latent  
   ## state time has to be calculated from the lognormal distribution
   d = LogNormal(P.m_lognormal_latent_shape, P.m_lognormal_latent_scale)
   m.statetime = max(P.m_latency_min, min(Int(floor(rand(d))), P.m_latency_max))
@@ -118,12 +114,17 @@ end
 
 function make_mosquito_symptomatic(m::Mosq)
   m.health = SYMP
-  m.statetime = m.ageofdeath + 1
+  m.statetime = m.ageofdeath + 1  ## mosquito will remain symptomatic till it dies
 end
 
+##############################################
+####### MAIN DISEASE DYNAMICS FUNCTIONS ######
+##############################################
+
+## increase time in state for both mosquito and human together at every time step
 function timeinstate_plusplus(h, m, t, P::ZikaParameters)
   ## increase timeinstate human
-  for i=1:P.grid_size_human
+  for i=1:P.grid_size_human    
     increase_timestate(h[i], P)
     update_human(i, h[i], t, P)
   end
@@ -135,25 +136,50 @@ function timeinstate_plusplus(h, m, t, P::ZikaParameters)
   end
 end
 
+## at the end of the day, if a swap is set, use the helper functions to move 
+## this also updates the data collection tables.
 function update_human(i::Int64, h::Human, timestep::Int64, P::ZikaParameters)
   if h.swap != UNDEF ## person is swapping
     if h.swap == LAT 
-      latent_ctr[timestep] += 1
-      make_human_latent(h, P)      
+      latent_ctr[timestep] += 1     
+      
+      ## if the human is pregnant, while getting infection, determine risk of microcephaly and increase microcephaly counter
+      if h.ispregnant == true
+        rn = rand()
+        if h.timeinpregnancy <= 90
+          if rn < rand()*(P.micro_trione_max - P.micro_trione_min) + P.micro_trione_min
+            micro_ctr[timestep] += 1
+          end
+        elseif h.timeinpregnancy > 90 && h.timeinpregnancy <= 180
+          if rn < rand()*(P.micro_tritwo_max - P.micro_tritwo_min) + P.micro_tritwo_min
+            micro_ctr[timestep] += 1
+          end
+        end
+      end    
+      make_human_latent(h, P)    
     elseif h.swap == SYMP
-      ## ADD FOR CALIBRATION
+      ## ADD FOR CALIBRATION ?? dec 11: add what for calibration?
       if h.latentfrom == 1 
         bite_symp_ctr[max(1, timestep - h.statetime - 1)] += 1
       elseif h.latentfrom == 2
         sex_symp_ctr[max(1, timestep - h.statetime - 1)] += 1     
-      end        
+      end       
+      ## count if a women is pregnant and are sympotmatic
+      if h.ispregnant == true && h.timeinpregnancy < 270
+        preg_symp_ctr[max(1, timestep - h.statetime - 1)]  += 1
+      end
       make_human_symptomatic(h, P)
+
     elseif h.swap == SYMPISO
       if h.latentfrom == 1
         bite_symp_ctr[max(1, timestep - h.statetime - 1)] += 1
       elseif h.latentfrom == 2
         sex_symp_ctr[max(1, timestep - h.statetime - 1)] += 1      
       end   
+      ## count if a women is pregnant and are sympotmatic
+      if h.ispregnant == true && h.timeinpregnancy < 270
+        preg_symp_ctr[max(1, timestep - h.statetime - 1)]  += 1
+      end
       make_human_sympisolated(h, P)
     elseif h.swap == ASYMP      
       if h.latentfrom == 1 
@@ -173,7 +199,7 @@ function update_human(i::Int64, h::Human, timestep::Int64, P::ZikaParameters)
   end
 end
 
-
+## at the end of the day, if a swap is set, use the helper functions to move 
 function update_mosq(m::Mosq, P::ZikaParameters)
   if m.swap != UNDEF 
     if m.swap == LAT 
@@ -188,3 +214,8 @@ function update_mosq(m::Mosq, P::ZikaParameters)
   end 
 end
 
+
+
+
+
+ 

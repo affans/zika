@@ -1,13 +1,17 @@
-using Parameters #module
-using Distributions
-using StatsBase
+
+
+## Enums
+@enum HEALTH SUSC=1 LAT=2 ASYMP=3 SYMP=4 SYMPISO=5 REC=6 DEAD=7 UNDEF=0
+@enum GENDER MALE=1 FEMALE=2
+@enum SEASON SUMMER=1 WINTER=-1
+
 
 ## MAIN SYSTEM PARAMETER
 @with_kw immutable ZikaParameters @deftype Int64
     # general parameters
     sim_time = 100       ## time of simulation - 2 years in days
-    grid_size_human = 100000
-    grid_size_mosq = 500000
+    grid_size_human = 10000
+    grid_size_mosq = 50000
     inital_latent = 5  
 
     # mosquito lifetime parameters
@@ -32,6 +36,7 @@ using StatsBase
     h_symptomatic_max = 6
     h_symptomatic_min = 3
 
+    ## 40 - 80% probability of going to asymptomatic
     ProbLatentToASymptomaticMax::Float64 = 0.8
     ProbLatentToASymptomaticMin::Float64 = 0.4
 
@@ -44,23 +49,31 @@ using StatsBase
 
     prob_infection_MtoH::Float64 = 0.3
     prob_infection_HtoM::Float64 = 0.3
-    ProbIsolationSymptomatic::Float64 = 0
-    reduction_factor::Float64 = 0.1
+    ProbIsolationSymptomatic::Float64 = 0  ## if symptomatic, what is probability of isolation
+    reduction_factor::Float64 = 0.1        ## asymptomatic reduction_factor?
 
     condom_reduction::Float64 = 0.0
 
+
+    ## pregnancy 
+    preg_percentage::Float64 = 0.05 # 5% of all eligible women (Gender=woman, 15<age<49)
+    micro_trione_min::Float64 = 0.0038
+    micro_trione_max::Float64 = 0.019
+    micro_tritwo_min::Float64 = 0.019
+    micro_tritwo_max::Float64 = 0.0132
+
+    ## vaccine parameters    
+    coverage_general::Float64 = 0.10
+    coverage_pregnant::Float64 = 0.60
+    efficacy_min::Float64 = 0.60
+    efficacy_max::Float64 = 0.90
 end
 
-## Enums
-@enum HEALTH SUSC=1 LAT=2 ASYMP=3 SYMP=4 SYMPISO=5 REC=6 DEAD=7 UNDEF=0
-@enum GENDER MALE=1 FEMALE=2
-@enum SEASON SUMMER=1 WINTER=-1
 
 
 
 ## age distribution discrete for humans
-function distribution_age()
-   
+function distribution_age()  
    
     ProbBirthAge = Vector{Float64}(17)
     SumProbBirthAge = Vector{Float64}(17)
@@ -216,12 +229,12 @@ function distribution_hazard_function(P::ZikaParameters)
     hazard_summer(t) = P.aSummer*exp(P.bSummer*(t-1))/(1+P.aSummer*P.sSummer*(exp(P.bSummer*(t-1))-1)/P.bSummer)
     hazard_winter(t) = P.aWinter*exp(P.bWinter*(t-1))/(1+P.aWinter*P.sWinter*(exp(P.bWinter*(t-1))-1)/P.bWinter);
     for t=1:summerlifespan
-        @inbounds KS[t], E = quadgk(hazard_summer, 0, t)   ## returns a tuple, E is the error
+        @inbounds KS[t], E = QuadGK.quadgk(hazard_summer, 0, t)   ## returns a tuple, E is the error
         @inbounds summer_SurS[t] = exp(-KS[t])
         @inbounds summer_PDFS[t] = hazard_summer(t)*summer_SurS[t]            
     end
     for t=1:winterlifespan
-        @inbounds KW[t], E = quadgk(hazard_winter, 0, t)   ## returns a tuple, E is the error
+        @inbounds KW[t], E = QuadGK.quadgk(hazard_winter, 0, t)   ## returns a tuple, E is the error
         @inbounds winter_SurS[t] = exp(-KW[t])
         @inbounds winter_PDFS[t] = hazard_winter(t)*winter_SurS[t]
     end

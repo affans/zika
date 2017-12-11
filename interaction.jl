@@ -20,7 +20,7 @@ function bite_interaction(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
         if h[persontobite].health == SUSC && m[i].health == SYMP
           #this susceptible person may go to latent
           rn = rand() #pick a random number
-          if rn < P.prob_infection_MtoH
+          if rn < P.prob_infection_MtoH*(1-h[persontobite].protectionlvl)
             h[persontobite].swap = LAT
             h[persontobite].latentfrom = 1
           end             
@@ -68,7 +68,7 @@ function sexual_interaction(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
           end
           
           ## roll dice to see if person gets infected
-          if rand() < proboftransmission
+          if rand() < proboftransmission*(1 - h[h[i].partner].protectionlvl)
             h[h[i].partner].swap = LAT
             h[h[i].partner].latentfrom = 2            
           end                   
