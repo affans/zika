@@ -5,26 +5,28 @@
 #using Gadfly
 #using Plots
 
-addprocs(20)
-
 using ProgressMeter
 using PmapProgressMeter
-@everywhere using DataArrays, DataFrames
-@everywhere using Match
-@everywhere using ParallelDataTransfer
-@everywhere using QuadGK
-@everywhere using Parameters #module
-@everywhere using Distributions
-@everywhere using StatsBase
+using DataArrays, DataFrames
+using Match
+using ParallelDataTransfer
+using QuadGK
+using Parameters #module
+using Distributions
+using StatsBase
 
-@everywhere include("parameters.jl");   ## sets up the parameters
-@everywhere include("functions.jl");
-@everywhere include("entities.jl");   ## sets up functions for human and mosquitos
-@everywhere include("disease.jl");
-@everywhere include("interaction.jl");
+include("parameters.jl");   ## sets up the parameters
+include("functions.jl");
+include("entities.jl");   ## sets up functions for human and mosquitos
+include("disease.jl");
+include("interaction.jl");
 
-@everywhere function main(cb, simulationnumber::Int64, P::ZikaParameters)   
-        
+function main(cb, simulationnumber::Int64, P::ZikaParameters)   
+    
+    ##
+    if P.transmission == 0.0
+      warning("Transmission value is set to zero - no disease will happen")
+    end
     
     ## the grids for humans and mosquitos
     humans = Array{Human}(P.grid_size_human)
@@ -38,47 +40,135 @@ using PmapProgressMeter
     global sdist_lifetimes
     global wdist_lifetimes
 
+    ## data collection arrays
+    latent_ctr = zeros(Int64, P.sim_time)
+    bite_symp_ctr = zeros(Int64, P.sim_time)
+    bite_asymp_ctr = zeros(Int64, P.sim_time)    
+    sex_symp_ctr = zeros(Int64, P.sim_time)
+    sex_asymp_ctr = zeros(Int64, P.sim_time)
+    preg_symp_ctr = zeros(Int64, P.sim_time)
+    preg_asymp_ctr = zeros(Int64, P.sim_time)
+    micro_ctr = zeros(Int64, P.sim_time)
+    vac_gen_ctr = zeros(Int64, P.sim_time)
+    vac_pre_ctr = zeros(Int64, P.sim_time)
     
-    global latent_ctr = zeros(Int64, P.sim_time)
-    global bite_symp_ctr = zeros(Int64, P.sim_time)
-    global bite_asymp_ctr = zeros(Int64, P.sim_time)    
-    global sex_symp_ctr = zeros(Int64, P.sim_time)
-    global sex_asymp_ctr = zeros(Int64, P.sim_time)
-    global preg_symp_ctr = zeros(Int64, P.sim_time)
-    global micro_ctr = zeros(Int64, P.sim_time)
-    global vac_gen_ctr = zeros(Int64, P.sim_time)
-    global vac_pre_ctr = zeros(Int64, P.sim_time)
-    
+    ## simulation setup functions
     setup_humans(humans)                      ## initializes the empty array
     setup_human_demographics(humans)          ## setup age distribution, male/female 
-    setup_pregnant_women(humans, P)
-    setup_vaccination(humans, P)              ## setup initial vaccination if coverage is more than 0
+    setup_preimmunity(humans, P)
+    setup_pregnant_women(humans, P)           ## setup pregant women according to distribution
+    g, p = setup_vaccination(humans, P)       ## setup initial vaccination if coverage is more than 0. (g, p) are the number of people vaccinated (general and pregnant women) - add to the counter at the end
     setup_sexualinteractionthree(humans)      ## setup sexual frequency, and partners
     setup_mosquitos(mosqs, current_season)    ## setup the mosquito array, including bite distribution
-    setup_mosquito_random_age(mosqs, P)  ## assign age and age of death to mosquitos
-    setup_rand_initial_latent(humans, P) ## introduce initial latent person
+    setup_mosquito_random_age(mosqs, P)       ## assign age and age of death to mosquitos
+    setup_rand_initial_latent(humans, P)      ## introduce initial latent person
     
-    ## the main time loop
-    for t=1:P.sim_time
+    ## the main time loop 
+    for t=1:P.sim_time        
+        ## every day check for season update
         if mod(t, 182) == 0
             current_season = SEASON(Int(current_season) * -1)
-        end 
+        end
+
+        ## functions to capture zika dynamics
         increase_mosquito_age(mosqs, current_season)
         bite_interaction(humans, mosqs, P)
         sexual_interaction(humans, mosqs, P)
-        pregnancy_and_vaccination(humans, t, P) 
-        timeinstate_plusplus(humans, mosqs, t, P)        
+        w = pregnancy_and_vaccination(humans, P) 
+        vac_pre_ctr[t] = w   
+    
+        ## end of day update for humans + data collection
+        for i=1:P.grid_size_human    
+            increase_timestate(humans[i], P)
+            if humans[i].swap != UNDEF ## person is swapping, update proper counters
+                if humans[i].swap == LAT 
+                  latent_ctr[t] += 1           
+                  ## if the human is pregnant, while getting infection, determine risk of microcephaly and increase microcephaly counter
+                  if humans[i].ispregnant == true
+                    rn = rand()
+                    if humans[i].timeinpregnancy <= 90
+                      if rn < rand()*(P.micro_trione_max - P.micro_trione_min) + P.micro_trione_min
+                        micro_ctr[t] += 1
+                      end
+                    elseif humans[i].timeinpregnancy > 90 && humans[i].timeinpregnancy <= 180
+                      if rn < rand()*(P.micro_tritwo_max - P.micro_tritwo_min) + P.micro_tritwo_min
+                        micro_ctr[t] += 1
+                      end
+                    end
+                  end    
+                  make_human_latent(humans[i], P)    
+                elseif humans[i].swap == SYMP || humans[i].swap == SYMPISO                 
+                  if humans[i].latentfrom == 1 
+                    bite_symp_ctr[max(1, t - humans[i].statetime - 1)] += 1
+                  elseif humans[i].latentfrom == 2
+                    sex_symp_ctr[max(1, t - humans[i].statetime - 1)] += 1     
+                  end       
+                  ## count if a women is pregnant and are sympotmatic
+                  if humans[i].ispregnant == true && humans[i].timeinpregnancy < 270
+                    preg_symp_ctr[max(1, t - humans[i].statetime - 1)]  += 1
+                  end
+                  if humans[i].swap == SYMP 
+                    make_human_symptomatic(humans[i], P)
+                  else
+                    make_human_sympisolated(humans[i], P)
+                  end    
+                elseif humans[i].swap == ASYMP      
+                  if humans[i].latentfrom == 1 
+                    bite_asymp_ctr[max(1, t - humans[i].statetime - 1)] += 1
+                  elseif humans[i].latentfrom == 2
+                    sex_asymp_ctr[max(1, t - humans[i].statetime - 1)] += 1   
+                  end  
+                  if humans[i].ispregnant == true && humans[i].timeinpregnancy < 270
+                    preg_asymp_ctr[max(1, t - humans[i].statetime - 1)]  += 1
+                  end 
+                  make_human_asymptomatic(humans[i], P)
+                elseif humans[i].swap == REC
+                  make_human_recovered(humans[i], P) 
+                elseif humans[i].swap == SUSC
+                  print("swap set to sus - never happen")
+                  assert(1 == 2)
+                end 
+                humans[i].timeinstate = 0 #reset their time in state
+                humans[i].swap = UNDEF #reset their time in state
+            end
+        end
+
+        ## end of day update for mosquitos
+        for i=1:P.grid_size_mosq
+            increase_timestate(mosqs[i])
+            if mosqs[i].swap != UNDEF 
+                if mosqs[i].swap == LAT 
+                  make_mosquito_latent(mosqs[i], P)
+                elseif mosqs[i].swap == SYMP
+                  make_mosquito_symptomatic(mosqs[i])
+                end
+                mosqs[i].timeinstate = 0
+                mosqs[i].swap = UNDEF
+            end 
+        end
         cb(1) ## increase the progress metre by 1.. callback function
     end ##end of time 
 
-    fname = string("simulation-",simulationnumber, ".dat") 
+    ## count the number of people vaccinated from the initial setup
+    ## we add the original "number" back because we don't wnat to lose the data that happened in the above time loop
+    ## ie, we have 50 initial vaccinated (time = 0 really, but we recrod at time=1) + 2 new ones at time = 1.
+    vac_gen_ctr[1] = g + vac_gen_ctr[1]
+    vac_pre_ctr[1] = p + vac_pre_ctr[1]
+ 
     
-    #writedlm(fname, [latent_ctr, bite_symp_ctr, bite_asymp_ctr])
-    writedlm(fname, [latent_ctr bite_symp_ctr bite_asymp_ctr sex_symp_ctr sex_asymp_ctr preg_symp_ctr micro_ctr vac_gen_ctr vac_pre_ctr])
-    return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr, preg_symp_ctr, micro_ctr, vac_gen_ctr, vac_pre_ctr
+    ## write the filename to disk 
+    if P.writerawfiles == 1
+      ## filename for the simulation
+      fname = string("simulation-",simulationnumber, ".dat") 
+    
+      writedlm(fname, [latent_ctr bite_symp_ctr bite_asymp_ctr sex_symp_ctr sex_asymp_ctr preg_symp_ctr preg_asymp_ctr micro_ctr vac_gen_ctr vac_pre_ctr])      
+    end
+    
+    ## return the counters 
+    return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr, preg_symp_ctr, preg_asymp_ctr, micro_ctr, vac_gen_ctr, vac_pre_ctr
 end
 
-@everywhere function main_calibration(cb, simulationnumber::Int64, P::ZikaParameters)   
+function main_calibration(cb, simulationnumber::Int64, P::ZikaParameters)   
     #print("starting calibration $simulationnumber on process $(myid()) \n")    
     params = P  ## store the incoming parameters in a local variable
     ## the grids for humans and mosquitos
@@ -129,23 +219,6 @@ end
 end
 
 
-##### MAIN CODE
-numberofsims = 10   ## setup number of simulations to pass to pmap (parallel map)
-## set transmission. Then send to all of the workers. 
-@everywhere transmission = 0.352  
-sendto(workers(), transmission = 0.352) 
-
-## setup main Zika Parameters  
-@everywhere P = ZikaParameters(sim_time = 364, grid_size_human = 10000, grid_size_mosq = 50000, inital_latent = 1, prob_infection_MtoH = transmission, prob_infection_HtoM = transmission, reduction_factor = 0.3, ProbIsolationSymptomatic = 0.1, condom_reduction = 0.0)    ## variables defined outside are not available to the functions. 
-
-print("Parameters: \n $P \n")  ## prints to STDOUT - redirect to logfile
-print("starting pmap...\n") 
-
-# cb is the callback function. It updates the progress bar
-results = pmap((cb, x) -> main(cb, x, P), Progress(numberofsims*P.sim_time), 1:numberofsims, passcallback=true)
-
-### CALIBRATION CODE
-
 #  numberofsims = 500
 #  @everywhere transmission = 0.0
 #  for j=0.43:-0.01:0.40
@@ -158,7 +231,7 @@ results = pmap((cb, x) -> main(cb, x, P), Progress(numberofsims*P.sim_time), 1:n
     
   
 #     ## setup main variables    
-#     @everywhere P = ZikaParameters(sim_time = 100, grid_size_human = 10000, grid_size_mosq = 20000, inital_latent = 1, prob_infection_MtoH = transmission, prob_infection_HtoM = transmission, reduction_factor = 0.9)    ## variables defined outside are not available to the functions. 
+#     @everywhere P = ZikaParameters(sim_time = 100, grid_size_human = 10000, grid_size_mosq = 20000, inital_latent = 1, reduction_factor = 0.9)    ## variables defined outside are not available to the functions. 
     
 #     print("parameters: \n $P \n")
 #     #results = pmap(x -> main(x, P), 1:numberofsims)      

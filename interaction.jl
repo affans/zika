@@ -20,7 +20,7 @@ function bite_interaction(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
         if h[persontobite].health == SUSC && m[i].health == SYMP
           #this susceptible person may go to latent
           rn = rand() #pick a random number
-          if rn < P.prob_infection_MtoH*(1-h[persontobite].protectionlvl)
+          if rn < P.transmission*(1-h[persontobite].protectionlvl)
             h[persontobite].swap = LAT
             h[persontobite].latentfrom = 1
           end             
@@ -30,9 +30,9 @@ function bite_interaction(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
         if (h[persontobite].health == SYMP || h[persontobite].health == ASYMP) && m[i].health == SUSC
           rn = rand()   # pick a random number
           if h[persontobite].health == SYMP 
-            proboftransfer = P.prob_infection_HtoM
+            proboftransfer = P.transmission
           elseif h[persontobite].health == ASYMP
-            proboftransfer = P.prob_infection_HtoM*P.reduction_factor
+            proboftransfer = P.transmission*P.reduction_factor
           end
           rn = rand()
           if rn < proboftransfer ## mosquito gets infected
@@ -82,10 +82,10 @@ end
 function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
   ## This function considers the main interaction of the model 
   ## idea: go through all mosquitos, and see if they will bite on their 
-  #latent_ctr[1] += 1
+
   #print("bite_interaction() from process: $(myid()) with calibrated: $calibrated_person \n")
   #print("process: $(myid())  calibrated health: $(h[calibrated_person].health) \n")
-  #print("What is P? $(P.prob_infection_HtoM) and reduction: $(P.reduction_factor) \n")
+
   ## on this "day", run through bites
   #print("health of calibrated person: $(h[calibrated_person].health) \n")
   totalbitestoday = 0
@@ -102,11 +102,13 @@ function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaPa
         if h[persontobite].health == SUSC && m[i].health == SYMP
           #this susceptible person may go to latent
           rn = rand() #pick a random number
-          if rn < P.prob_infection_MtoH
+          if rn < P.transmission
             h[persontobite].swap = LAT
             h[persontobite].latentfrom = 1
           end             
         end
+
+        
 
         ## 2) infected person - susceptible mosquito
         if (h[persontobite].health == SYMP || h[persontobite].health == ASYMP) && m[i].health == SUSC && persontobite == calibrated_person
@@ -115,9 +117,9 @@ function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaPa
           #print("Transfer must happen \n")
           rn = rand()   # pick a random number
           if h[persontobite].health == SYMP 
-            proboftransfer = P.prob_infection_HtoM
+            proboftransfer = P.transmission
           elseif h[persontobite].health == ASYMP
-            proboftransfer = P.prob_infection_HtoM*P.reduction_factor
+            proboftransfer = P.transmission*P.reduction_factor
           end
           rn = rand()
           if rn < proboftransfer ## mosquito gets infected

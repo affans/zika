@@ -66,6 +66,19 @@ function setup_human_demographics(a::Array{Human})
     end 
 end
 
+function setup_preimmunity(h::Array{Human}, P::ZikaParameters)
+    ctr = 0 
+    cov = P.preimmunity
+    if cov > 0 
+        @inbounds for i = 1:length(h)
+            if rand() < cov 
+                h[i].protectionlvl = P.preimmunity_protectionlvl
+            end
+        end
+    end
+    return ctr
+end
+
 function setup_pregnant_women(h::Array{Human}, P::ZikaParameters)
     ## get the number of eligible, this is too slow just use loop/if
     sd = find(x -> x.gender == FEMALE && x.age >= 15 && x.age <= 49, h)
@@ -115,40 +128,54 @@ end
 
 function setup_vaccination(h::Array{Human}, P::ZikaParameters)
     ## go through different subsets of population and vaccinate according to the right parameters
+    
+    ## local variables 
+    genvac = 0
+    prevac = 0
+
     ## first check if there is even coverage to be had 
-    if (P.coverage_general + P.coverage_pregnant) == 0
-        return 0
-    end    
-    genpop = find(x -> (x.age < 15 || x.age > 49) || (x.gender == MALE), h)
-    for i = 1:length(genpop)
-        rn = rand()
-        if rn < P.coverage_general
-            h[genpop[i]].isvaccinated = true
-            h[genpop[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
-            vac_gen_ctr[1] += 1
+    if (P.coverage_general + P.coverage_pregnant) > 0       
+        genpop_males = find(x -> (x.age >= 9 && x.age <= 60) && x.gender == MALE, h)
+        for i = 1:length(genpop_males)
+            rn = rand()
+            if rn < P.coverage_general
+                h[genpop_males[i]].isvaccinated = true
+                h[genpop_males[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
+                genvac += 1
+            end
+        end
+
+        genpop_females = find(x -> ((x.age >= 9 && x.age < 15) || (x.age > 49 && x.age <= 60)) && (x.gender == FEMALE), h)
+        for i = 1:length(genpop_females)
+            rn = rand()
+            if rn < P.coverage_general
+                h[genpop_females[i]].isvaccinated = true
+                h[genpop_females[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
+                genvac += 1
+            end
+        end
+        
+        nonpreg_women = find(x -> (x.gender == FEMALE) && (x.age >= 15 && x.age <= 49) && x.ispregnant == false, h)
+        for i = 1:length(nonpreg_women)
+            rn = rand()
+            if rn < P.coverage_general
+                h[nonpreg_women[i]].isvaccinated = true
+                h[nonpreg_women[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
+                genvac += 1
+            end
+        end
+        
+        preg_women = find(x -> x.gender == FEMALE && x.age >= 15 && x.age <= 49 && x.ispregnant == true, h)
+        for i = 1:length(preg_women)
+            rn = rand()
+            if rn < P.coverage_pregnant
+                h[preg_women[i]].isvaccinated = true
+                h[preg_women[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
+                prevac += 1
+            end
         end
     end
-    
-    nonpreg_women = find(x -> x.gender == FEMALE && x.age >= 15 && x.age <= 49 && x.ispregnant == false, h)
-    for i = 1:length(nonpreg_women)
-        rn = rand()
-        if rn < P.coverage_general
-            h[nonpreg_women[i]].isvaccinated = true
-            h[nonpreg_women[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
-            vac_gen_ctr[1] += 1
-        end
-    end
-    
-    preg_women = find(x -> x.gender == FEMALE && x.age >= 15 && x.age <= 49 && x.ispregnant == true, h)
-    for i = 1:length(preg_women)
-        rn = rand()
-        if rn < P.coverage_pregnant
-            h[preg_women[i]].isvaccinated = true
-            h[preg_women[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
-            vac_pre_ctr[1] += 1
-        end
-    end
-    return 1
+    return genvac, prevac
 end
 
 
@@ -288,7 +315,7 @@ function increase_mosquito_age(m::Array{Mosq}, current_season)
     return nothing
 end
 
-function pregnancy_and_vaccination(h::Array{Human}, t, P::ZikaParameters)
+function pregnancy_and_vaccination(h::Array{Human}, P::ZikaParameters)
     ## this increases the time in pregnancy for women by 1 day. If it reaches 270 days, a baby is born - this does not need to be recorded (as you can get this from pregnant women). At 270 days, we find another nonpregnant women (in the same age group) and make them pregnant with timeinpregnancy = 0
     ## As the new person is becoming pregnant, vaccinate them if they have not been vaccinated before. if the vaccination coverage is set to zero, no one will get vaccinated according to this code. 
     ## The function returns the the number of vaccinated pregnant women (ie, if a women is becoming pregnant and also gets vaccination, we return this function) 
@@ -307,8 +334,7 @@ function pregnancy_and_vaccination(h::Array{Human}, t, P::ZikaParameters)
                     if h[randfemale].isvaccinated == false && rand() < P.coverage_pregnant
                         h[randfemale].isvaccinated = true
                         h[randfemale].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)                       
-                        numbervaccinated += 1
-                        vac_pre_ctr[t] += 1
+                        numbervaccinated += 1                        
                     end
                 end                
             end

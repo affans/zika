@@ -8,7 +8,12 @@ function increase_timestate(h::Human, P::ZikaParameters)
   if h.timeinstate > h.statetime ## they have expired, and moving compartnments
     if h.health == LAT 
       ## if they are latent, switch to asymp/symp
-      rn = rand()*(P.ProbLatentToASymptomaticMax - P.ProbLatentToASymptomaticMin) + P.ProbLatentToASymptomaticMin
+      ## if they have any level of protection, they will only go to asymptomatic
+      if h.protectionlvl > 0 
+        rn = 1
+      else 
+        rn = rand()*(P.ProbLatentToASymptomaticMax - P.ProbLatentToASymptomaticMin) + P.ProbLatentToASymptomaticMin
+      end
       ## human is going to asymptomatic
       if rand() < rn 
         h.swap = ASYMP
@@ -103,7 +108,6 @@ function make_human_recovered(h::Human, P::ZikaParameters)
   h.statetime = 999  ## no expiry time for recovered individuals, they are always recovered
 end
 
-
 function make_mosquito_latent(m::Mosq, P::ZikaParameters)
   ## make the i'th human latent
   m.health = LAT    # make the health -> latent  
@@ -116,104 +120,6 @@ function make_mosquito_symptomatic(m::Mosq)
   m.health = SYMP
   m.statetime = m.ageofdeath + 1  ## mosquito will remain symptomatic till it dies
 end
-
-##############################################
-####### MAIN DISEASE DYNAMICS FUNCTIONS ######
-##############################################
-
-## increase time in state for both mosquito and human together at every time step
-function timeinstate_plusplus(h, m, t, P::ZikaParameters)
-  ## increase timeinstate human
-  for i=1:P.grid_size_human    
-    increase_timestate(h[i], P)
-    update_human(i, h[i], t, P)
-  end
-
-  ## increase timeinstate
-  for i=1:P.grid_size_mosq
-    increase_timestate(m[i])
-    update_mosq(m[i], P)
-  end
-end
-
-## at the end of the day, if a swap is set, use the helper functions to move 
-## this also updates the data collection tables.
-function update_human(i::Int64, h::Human, timestep::Int64, P::ZikaParameters)
-  if h.swap != UNDEF ## person is swapping
-    if h.swap == LAT 
-      latent_ctr[timestep] += 1     
-      
-      ## if the human is pregnant, while getting infection, determine risk of microcephaly and increase microcephaly counter
-      if h.ispregnant == true
-        rn = rand()
-        if h.timeinpregnancy <= 90
-          if rn < rand()*(P.micro_trione_max - P.micro_trione_min) + P.micro_trione_min
-            micro_ctr[timestep] += 1
-          end
-        elseif h.timeinpregnancy > 90 && h.timeinpregnancy <= 180
-          if rn < rand()*(P.micro_tritwo_max - P.micro_tritwo_min) + P.micro_tritwo_min
-            micro_ctr[timestep] += 1
-          end
-        end
-      end    
-      make_human_latent(h, P)    
-    elseif h.swap == SYMP
-      ## ADD FOR CALIBRATION ?? dec 11: add what for calibration?
-      if h.latentfrom == 1 
-        bite_symp_ctr[max(1, timestep - h.statetime - 1)] += 1
-      elseif h.latentfrom == 2
-        sex_symp_ctr[max(1, timestep - h.statetime - 1)] += 1     
-      end       
-      ## count if a women is pregnant and are sympotmatic
-      if h.ispregnant == true && h.timeinpregnancy < 270
-        preg_symp_ctr[max(1, timestep - h.statetime - 1)]  += 1
-      end
-      make_human_symptomatic(h, P)
-
-    elseif h.swap == SYMPISO
-      if h.latentfrom == 1
-        bite_symp_ctr[max(1, timestep - h.statetime - 1)] += 1
-      elseif h.latentfrom == 2
-        sex_symp_ctr[max(1, timestep - h.statetime - 1)] += 1      
-      end   
-      ## count if a women is pregnant and are sympotmatic
-      if h.ispregnant == true && h.timeinpregnancy < 270
-        preg_symp_ctr[max(1, timestep - h.statetime - 1)]  += 1
-      end
-      make_human_sympisolated(h, P)
-    elseif h.swap == ASYMP      
-      if h.latentfrom == 1 
-        bite_asymp_ctr[max(1, timestep - h.statetime - 1)] += 1
-      elseif h.latentfrom == 2
-        sex_asymp_ctr[max(1, timestep - h.statetime - 1)] += 1              
-      end   
-      make_human_asymptomatic(h, P)
-    elseif h.swap == REC
-      make_human_recovered(h, P) 
-    elseif h.swap == SUSC
-      print("swap set to sus - never happen")
-      assert(1 == 2)
-    end 
-    h.timeinstate = 0 #reset their time in state
-    h.swap = UNDEF #reset their time in state
-  end
-end
-
-## at the end of the day, if a swap is set, use the helper functions to move 
-function update_mosq(m::Mosq, P::ZikaParameters)
-  if m.swap != UNDEF 
-    if m.swap == LAT 
-      make_mosquito_latent(m, P)
-      #print("... mosquito age: $(m.age) \n") 
-      #print("... mosquito ageofdeath: $(m.ageofdeath) \n") 
-    elseif m.swap == SYMP
-      make_mosquito_symptomatic(m)
-    end
-    m.timeinstate = 0
-    m.swap = UNDEF
-  end 
-end
-
 
 
 

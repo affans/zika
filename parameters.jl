@@ -9,10 +9,11 @@
 ## MAIN SYSTEM PARAMETER
 @with_kw immutable ZikaParameters @deftype Int64
     # general parameters
-    sim_time = 100       ## time of simulation - 2 years in days
+    sim_time = 364       ## time of simulation - 2 years in days
     grid_size_human = 10000
     grid_size_mosq = 50000
-    inital_latent = 5  
+    inital_latent = 1 
+    writerawfiles = 0  ## 0 for no, 1 for yes. if 1, main() writes simulation-i.dat
 
     # mosquito lifetime parameters
     winterlifespan_max = 30
@@ -40,6 +41,7 @@
     ProbLatentToASymptomaticMax::Float64 = 0.8
     ProbLatentToASymptomaticMin::Float64 = 0.4
 
+    ## mosquito lifespan distribution parameters
     m_lognormal_latent_shape::Float64 = 2.28  ## mean 10
     m_lognormal_latent_scale::Float64 = 0.21 
     h_lognormal_latent_shape::Float64 = 1.72 ## mean 5.7
@@ -47,26 +49,33 @@
     h_lognormal_symptomatic_shape::Float64 = 1.54  ## mean 4.7
     h_lognormal_symptomatic_scale::Float64 = 0.12     
 
-    prob_infection_MtoH::Float64 = 0.3
-    prob_infection_HtoM::Float64 = 0.3
+    ##transmission probabilities -- don't really need two parameters    
+    #prob_infection_MtoH::Float64 = 0.352
+    #prob_infection_HtoM::Float64 = 0.352
+    transmission::Float64 = 0.0
     ProbIsolationSymptomatic::Float64 = 0  ## if symptomatic, what is probability of isolation
     reduction_factor::Float64 = 0.1        ## asymptomatic reduction_factor?
 
+    ## sexual interaction specific
     condom_reduction::Float64 = 0.0
-
 
     ## pregnancy 
     preg_percentage::Float64 = 0.05 # 5% of all eligible women (Gender=woman, 15<age<49)
     micro_trione_min::Float64 = 0.0038
     micro_trione_max::Float64 = 0.019
-    micro_tritwo_min::Float64 = 0.019
+
+    micro_tritwo_min::Float64 = 0.0028
     micro_tritwo_max::Float64 = 0.0132
 
     ## vaccine parameters    
-    coverage_general::Float64 = 0.10
-    coverage_pregnant::Float64 = 0.60
+    coverage_general::Float64 = 0.0 # 0.10
+    coverage_pregnant::Float64 = 0.0 #0.60
     efficacy_min::Float64 = 0.60
     efficacy_max::Float64 = 0.90
+
+    ## preexisting immunity 
+    preimmunity::Float64 = 0.08  ## coverage of preimmunity
+    preimmunity_protectionlvl::Float64 = 1.0
 end
 
 

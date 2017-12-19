@@ -42,3 +42,12 @@ function calculatesexfrequency(age::Int64, sex::GENDER)
     end
     return sexfreq
 end
+
+function prot(a) 
+    ## this function is used 
+    if a > 0 
+        return 0
+    else 
+        return 1
+    end
+end

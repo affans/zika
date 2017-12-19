@@ -98,6 +98,10 @@ function test_getagegroup(human)
 end
 
 
+## to do
+## if there is a protection level, the 
+
+
 
 function test_mosquito_hazard_function()
     #get the distribution from the parameters.jl file
