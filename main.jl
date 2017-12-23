@@ -98,15 +98,18 @@ function main(cb, simulationnumber::Int64, P::ZikaParameters)
                   end    
                   make_human_latent(humans[i], P)    
                 elseif humans[i].swap == SYMP || humans[i].swap == SYMPISO                 
+                  ## note: for the initial human latents.. they never get recorded in the latent ctr because their swap is never set to latent
+                  ## and also, the initial latent will turn into symp/asymp but indeed they don't get recorded again because their "latentfrom=0" by default. 
                   if humans[i].latentfrom == 1 
                     bite_symp_ctr[max(1, t - humans[i].statetime - 1)] += 1
                   elseif humans[i].latentfrom == 2
                     sex_symp_ctr[max(1, t - humans[i].statetime - 1)] += 1     
                   end       
-                  ## count if a women is pregnant and are sympotmatic
-                  if humans[i].ispregnant == true && humans[i].timeinpregnancy < 270
+                  ## count if a women is pregnant and are sympotmatic (only if latentfrom > 0 (= 0 for the initial cases))
+                  if humans[i].ispregnant == true && humans[i].timeinpregnancy < 270 && humans[i].latentfrom > 0
                     preg_symp_ctr[max(1, t - humans[i].statetime - 1)]  += 1
                   end
+
                   if humans[i].swap == SYMP 
                     make_human_symptomatic(humans[i], P)
                   else
@@ -118,7 +121,7 @@ function main(cb, simulationnumber::Int64, P::ZikaParameters)
                   elseif humans[i].latentfrom == 2
                     sex_asymp_ctr[max(1, t - humans[i].statetime - 1)] += 1   
                   end  
-                  if humans[i].ispregnant == true && humans[i].timeinpregnancy < 270
+                  if humans[i].ispregnant == true && humans[i].timeinpregnancy < 270 && humans[i].latentfrom > 0
                     preg_asymp_ctr[max(1, t - humans[i].statetime - 1)]  += 1
                   end 
                   make_human_asymptomatic(humans[i], P)
@@ -159,8 +162,7 @@ function main(cb, simulationnumber::Int64, P::ZikaParameters)
     ## write the filename to disk 
     if P.writerawfiles == 1
       ## filename for the simulation
-      fname = string("simulation-",simulationnumber, ".dat") 
-    
+      fname = string("simulation-",simulationnumber, ".dat")     
       writedlm(fname, [latent_ctr bite_symp_ctr bite_asymp_ctr sex_symp_ctr sex_asymp_ctr preg_symp_ctr preg_asymp_ctr micro_ctr vac_gen_ctr vac_pre_ctr])      
     end
     

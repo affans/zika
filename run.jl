@@ -128,7 +128,7 @@ end
                 coverage_pregnant = 0.0,               
                 preimmunity = 0.0 )
 
-run(P, 5000)
+run(P, 2000)
 
 # ## asymp 10, iso 10, covgen 10, covpreg 80, preimmunity 0
 # @everywhere P = ZikaParameters(
