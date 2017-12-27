@@ -61,11 +61,18 @@
 
     ## pregnancy 
     preg_percentage::Float64 = 0.05 # 5% of all eligible women (Gender=woman, 15<age<49)
-    micro_trione_min::Float64 = 0.0038
-    micro_trione_max::Float64 = 0.019
 
-    micro_tritwo_min::Float64 = 0.0028
-    micro_tritwo_max::Float64 = 0.0132
+    ## microcephaly risk - CDC / NEJM / Honein 2017 
+    ## honein reports 4-6% for second trimester, 3-6% for third. 
+    ## we calculated CDC secdond/third to be 4%
+    ## to be consistent, we use 3-5% for risk of micro after 180 days in pregnancy
+    # https://www.cdc.gov/mmwr/volumes/66/wr/mm6613e1.htm
+    micro_trione_min::Float64 = 0.05  #0.0034
+    micro_trione_max::Float64 = 0.14  ##0.019
+
+    ##trimester two here refers to second/third trimester together
+    micro_tritwo_min::Float64 = 0.03 #0.0028
+    micro_tritwo_max::Float64 = 0.05 #0.0132
 
     ## vaccine parameters    
     coverage_general::Float64 = 0.0 # 0.10
@@ -77,8 +84,6 @@
     preimmunity::Float64 = 0.08  ## coverage of preimmunity
     preimmunity_protectionlvl::Float64 = 1.0
 end
-
-
 
 
 ## age distribution discrete for humans

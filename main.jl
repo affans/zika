@@ -86,11 +86,11 @@ function main(cb, simulationnumber::Int64, P::ZikaParameters)
                   ## if the human is pregnant, while getting infection, determine risk of microcephaly and increase microcephaly counter
                   if humans[i].ispregnant == true
                     rn = rand()
-                    if humans[i].timeinpregnancy <= 90
+                    if humans[i].timeinpregnancy <= 97
                       if rn < rand()*(P.micro_trione_max - P.micro_trione_min) + P.micro_trione_min
                         micro_ctr[t] += 1
                       end
-                    elseif humans[i].timeinpregnancy > 90 && humans[i].timeinpregnancy <= 180
+                    elseif humans[i].timeinpregnancy > 97 && humans[i].timeinpregnancy <= 270
                       if rn < rand()*(P.micro_tritwo_max - P.micro_tritwo_min) + P.micro_tritwo_min
                         micro_ctr[t] += 1
                       end
