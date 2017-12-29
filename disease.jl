@@ -9,6 +9,7 @@ function increase_timestate(h::Human, P::ZikaParameters)
     if h.health == LAT 
       ## if they are latent, switch to asymp/symp
       ## if they have any level of protection, they will only go to asymptomatic
+      rn = 0 
       if h.protectionlvl > 0 
         rn = 1
       else 
@@ -26,6 +27,10 @@ function increase_timestate(h::Human, P::ZikaParameters)
       end
     elseif h.health == SYMP || h.health == ASYMP || h.health == SYMPISO
       h.swap = REC
+    end
+    if h.swap == UNDEF
+      print("Time in state has expired by swap was never set")
+      assert(1 == 2)
     end
   end
 end

@@ -1,12 +1,14 @@
 function bite_interaction(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
-  ## This function considers the main interaction of the model 
-  ## idea: go through all mosquitos, and see if they will bite on their 
+  ## This function considers the main interaction of the model which is vector transmission
+  ## The logic is as follows: go through all mosquitos (which have already been given a bite distribution), and check each day if they will bite someone. 
 
-  ## on this "day", run through bites
-  totalbitestoday = 0
+  ## counter to keep track of bites per day -- not really needed, but good for testing. 
+  totalbitestoday = 0  
   
-  nonisos = find(x -> x.health != SYMPISO, h)  ## go through humans, and find all humans that are not isolated
-        
+  ## go through humans, and find all humans that are not isolated
+  nonisos = find(x -> x.health != SYMPISO, h) 
+
+  ## go through the entire mosquito array
   for i=1:length(m)
     willbite = m[i].bitedistribution[m[i].age] ## check if mosquito i will bite on this day
     if willbite == 1
@@ -39,9 +41,7 @@ function bite_interaction(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
             m[i].swap = LAT
           end
         end
-
         ## for all other scenarios, do nothing, and the bite is wasted. 
-
     end 
   end
   return totalbitestoday
