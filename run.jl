@@ -116,6 +116,7 @@ end
 
 ##### MAIN CODE
 
+## for 2.2
 ## 0.3947 - asymptomatic reduction by 10%
 ## 0.2851 - asymptomatic reduction by 90%
 
@@ -126,202 +127,207 @@ end
 ## setup main Zika Parameters  
 ##scenario one
 
+@everywhere gridsize = 100000
+@everywhere asymp_ten = 0.3187 #0.3947
+@everywhere asymp_ninety = 0.2224 #0.2851
+@everywhere runsims = 5000
+
 ## asymp 10, iso 10, covgen 0, covpreg 0, preimmunity 0
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.1, 
 ProbIsolationSymptomatic = 0.1, 
-transmission = 0.3947, 
+transmission = asymp_ten , 
 coverage_general = 0.0,
 coverage_pregnant = 0.0,               
 preimmunity = 0.0 )
-run(P, 2000)
+run(P, runsims)
 
 ## asymp 10, iso 10, covgen 10, covpreg 80, preimmunity 0
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.1, 
 ProbIsolationSymptomatic = 0.1, 
-transmission = 0.3947, 
+transmission = asymp_ten , 
 coverage_general = 0.10,
 coverage_pregnant = 0.80,               
 preimmunity = 0.0 )
-run(P, 2000)
+run(P, runsims)
 
 ## asymp 10, iso 50, covgen 0, covpreg 0, preimmunity 0
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.1, 
 ProbIsolationSymptomatic = 0.5, 
-transmission = 0.3947, 
+transmission = asymp_ten , 
 coverage_general = 0.0,
 coverage_pregnant = 0.0,               
 preimmunity = 0.0 )
-run(P, 2000)
+run(P, runsims)
 
 ## asymp 10, iso 50, covgen 10, covpreg 80, preimmunity 0
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.1, 
 ProbIsolationSymptomatic = 0.5, 
-transmission = 0.3947, 
+transmission = asymp_ten , 
 coverage_general = 0.10,
 coverage_pregnant = 0.80,               
 preimmunity = 0.0 )
-run(P, 2000)
+run(P, runsims)
 
 
 ## asymp 90, iso 50, covgen 0, covpreg 0, preimmunity 0
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.90, 
 ProbIsolationSymptomatic = 0.50, 
-transmission = 0.2851, 
+transmission = asymp_ninety, 
 coverage_general = 0.0,
 coverage_pregnant = 0.0,               
 preimmunity = 0.0 )
-run(P, 2000)
+run(P, runsims)
 
 ## asymp 90, iso 50, covgen 10, covpreg 80, preimmunity 0
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.90, 
 ProbIsolationSymptomatic = 0.50, 
-transmission = 0.2851, 
+transmission = asymp_ninety, 
 coverage_general = 0.10,
 coverage_pregnant = 0.80,               
 preimmunity = 0.0 )
-run(P, 2000)
+run(P, runsims)
 
 
 ## asymp 90, iso 10, covgen 0, covpreg 0, preimmunity 0
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.90, 
 ProbIsolationSymptomatic = 0.10, 
-transmission = 0.2851, 
+transmission = asymp_ninety, 
 coverage_general = 0.0,
 coverage_pregnant = 0.0,               
 preimmunity = 0.0 )
-run(P, 2000)
+run(P, runsims)
 
 ## asymp 90, iso 10, covgen 10, covpreg 80, preimmunity 0
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.90, 
 ProbIsolationSymptomatic = 0.10, 
-transmission = 0.2851, 
+transmission = asymp_ninety, 
 coverage_general = 0.10,
 coverage_pregnant = 0.80,               
 preimmunity = 0.0 )
-run(P, 2000)
+run(P, runsims)
 
 #### START PRE IMMUNITY 1
 ## asymp 10, iso 10, covgen 0, covpreg 0, preimmunity 1
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.1, 
 ProbIsolationSymptomatic = 0.1, 
-transmission = 0.3947, 
+transmission = asymp_ten , 
 coverage_general = 0.0,
 coverage_pregnant = 0.0,               
 preimmunity = 0.08 )
-run(P, 2000)
+run(P, runsims)
 
 ## asymp 10, iso 10, covgen 10, covpreg 80, preimmunity 1
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.1, 
 ProbIsolationSymptomatic = 0.1, 
-transmission = 0.3947, 
+transmission = asymp_ten , 
 coverage_general = 0.10,
 coverage_pregnant = 0.80,               
 preimmunity = 0.08 )
-run(P, 2000)
+run(P, runsims)
 
 ## asymp 10, iso 50, covgen 0, covpreg 0, preimmunity 1
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.1, 
 ProbIsolationSymptomatic = 0.5, 
-transmission = 0.3947, 
+transmission = asymp_ten, 
 coverage_general = 0.0,
 coverage_pregnant = 0.0,               
 preimmunity = 0.08 )
-run(P, 2000)
+run(P, runsims)
 
 ## asymp 10, iso 50, covgen 10, covpreg 80, preimmunity 1
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.1, 
 ProbIsolationSymptomatic = 0.5, 
-transmission = 0.3947, 
+transmission = asymp_ten , 
 coverage_general = 0.10,
 coverage_pregnant = 0.80,               
 preimmunity = 0.08 )
-run(P, 2000)
+run(P, runsims)
 
 
 ## asymp 90, iso 50, covgen 0, covpreg 0, preimmunity 1
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.90, 
 ProbIsolationSymptomatic = 0.50, 
-transmission = 0.2851, 
+transmission = asymp_ninety, 
 coverage_general = 0.0,
 coverage_pregnant = 0.0,               
 preimmunity = 0.08 )
-run(P, 2000)
+run(P, runsims)
 
 ## asymp 90, iso 50, covgen 10, covpreg 80, preimmunity 1
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.90, 
 ProbIsolationSymptomatic = 0.50, 
-transmission = 0.2851, 
+transmission = asymp_ninety, 
 coverage_general = 0.10,
 coverage_pregnant = 0.80,               
 preimmunity = 0.08 )
-run(P, 2000)
+run(P, runsims)
 
 
 ## asymp 90, iso 10, covgen 0, covpreg 0, preimmunity 1
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.90, 
 ProbIsolationSymptomatic = 0.10, 
-transmission = 0.2851, 
+transmission = asymp_ninety, 
 coverage_general = 0.0,
 coverage_pregnant = 0.0,               
 preimmunity = 0.08 )
-run(P, 2000)
+run(P, runsims)
 
 ## asymp 90, iso 10, covgen 10, covpreg 80, preimmunity 1
 @everywhere P = ZikaParameters(
-grid_size_mosq = 50000,
+grid_size_mosq = gridsize,
 inital_latent = 1,
 reduction_factor = 0.90, 
 ProbIsolationSymptomatic = 0.10, 
-transmission = 0.2851, 
+transmission = asymp_ninety, 
 coverage_general = 0.10,
 coverage_pregnant = 0.80,               
 preimmunity = 0.08 )
-run(P, 2000)
+run(P, runsims)
 
 
 ## test change of parameters over all workers

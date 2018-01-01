@@ -1,8 +1,9 @@
+rm(list = ls())
 library(data.table)
 library(ggplot2)
 library(reshape2)
-library(ggthemes)
-library(plyr)
+#library(ggthemes)
+#library(plyr)
 #library(gridExtra)
 #library(grid)
 #library(RColorBrewer)
@@ -43,7 +44,7 @@ process_micro <- function(dt){
   mdt = data.table("simid"=numeric(), "die"=numeric(), "expectancy"=numeric(), "microlife"=numeric(), "daly"=numeric())
   
   ## for each simulation, calculate the number of dalys per micro case in each simulation
-  for(i in 1:2000){
+  for(i in 1:5000){
     if(dt[i]$total > 0){
       simid = i
       expectancy = min(-70*log(1-runif(1,0,1)), 99)
@@ -67,8 +68,9 @@ process_micro <- function(dt){
   return(list(dt=dt, summary=summary(mdt$totaldalys)))
 }
 
-fnames <- function(imm=0, asymp=10, iso=10){
-  pp = "/Users/abmlab/Dropbox/Zika Vaccine/Affan/R028/"
+fnames <- function(R = "R022", imm=0, asymp=10, iso=10){
+  #pp = paste0("/Users/abmlab/Dropbox/Zika Vaccine/Affan/", R, "/")
+  pp = paste0("E:/Dropbox/Zika Vaccine/Affan/", R, "/")
   asympiso = paste0("/Asymp", asymp, "Iso", iso)
   pre = paste0("Pre",imm)
   nv = paste0(pp, asympiso, "_Coverage00", pre, "/")
@@ -100,8 +102,9 @@ fnames <- function(imm=0, asymp=10, iso=10){
 
 process_simulations <- function(fn, vaccineprice=0){
   ## create a restuls data
-  rdt = data.table("simid" = numeric(2000))
-  rdt$simid = seq(1:2000)
+  numofsims = 5000
+  rdt = data.table("simid" = numeric(numofsims))
+  rdt$simid = seq(1:numofsims)
   
   ## cost variables
   sympcost = 65
@@ -120,7 +123,7 @@ process_simulations <- function(fn, vaccineprice=0){
   symp = symp[, .(totals = rowSums(symp))]  ## add up incidence at simulation level
   asymp = asymp[, .(totals = rowSums(asymp))]
   pos = symp + asymp
-  pos[, simid := seq(1:2000)]
+  pos[, simid := seq(1:numofsims)]
   setkey(pos, simid)
   
   #r = fread("Dropbox/Zika Vaccine/Affan/R028/1 initial/Asymp10Iso10_Coverage00Pre0/recovered.dat")
@@ -139,7 +142,7 @@ process_simulations <- function(fn, vaccineprice=0){
   
   ## get microcephaly cases
   mcr = fread(fn$micro)
-  mcr[, simid:=seq(1:2000)] ## add a simid column
+  mcr[, simid:=seq(1:numofsims)] ## add a simid column
   mcr = mcr[, .(simid, total = rowSums(mcr[, !c("simid")]))] ## add up the rows
   setkey(mcr, simid)  ##set key to simid for merging with the intermediate results below
   
@@ -165,7 +168,7 @@ process_simulations <- function(fn, vaccineprice=0){
   vacgeneral = fread(fn$vacgeneral)
   vacpregnant = fread(fn$vacpregnant)
   vac = vacgeneral + vacpregnant
-  vac[, simid:=seq(1:2000)] ## add a simid column
+  vac[, simid:=seq(1:numofsims)] ## add a simid column
   vac = vac[, .(simid, total = rowSums(vac[, !c("simid")]))]
   
   ## set all the simulations where there was no vaccine to zero cases so we dont count them
@@ -184,27 +187,41 @@ process_simulations <- function(fn, vaccineprice=0){
 
 ## bootstraping
 icerbootstrap <- function(dat, idx){
-  mvc = mean(dat[idx, wvcosts])
-  mnc = mean(dat[idx, nvcosts])
-  mvd = mean(dat[idx, wvdalys])
-  mnd = mean(dat[idx, nvdalys])
-  costdiff = mvc-mnc
-  dalydiff = -(mvd-mnd)
-  return(c(costdiff/dalydiff, costdiff, dalydiff))
+  wvc = mvc = mean(dat[idx, wvcosts])
+  nvc = mnc = mean(dat[idx, nvcosts])
+  wvd = mvd = mean(dat[idx, wvdalys])
+  nvd = mnd = mean(dat[idx, nvdalys])
+  costdiff = wvc - nvc
+  dalydiff = -(wvd - nvd)
+  ## want wvc, nvc, nvd, wvd in order for the BCEA package since it does a direct "substraction" for the difference
+  return(c(costdiff/dalydiff, costdiff, dalydiff, wvc, nvc, nvd, wvd))
 }
 
-rst = data.table("P2" = numeric(2000), 
-                 "P5" = numeric(2000), 
-                 "P10"= numeric(2000), 
-                 "P20"= numeric(2000), 
-                 "P30"= numeric(2000), 
-                 "P40"= numeric(2000), 
-                 "P50"= numeric(2000))
 
-for(i in c(2, 5, 10, 20, 30, 40, 50)){
+
+
+run_analysis <- function(Rzero, immonoff, asymplvl, isolvl){
+  rst = data.table("P2" = numeric(2000), 
+                   "P5" = numeric(2000), 
+                   "P10"= numeric(2000), 
+                   "P20"= numeric(2000), 
+                   "P30"= numeric(2000), 
+                   "P40"= numeric(2000), 
+                   "P50"= numeric(2000))
+  cecurvepoints = 501 ## from beac package
+  cecurve = data.table("P2" = numeric(cecurvepoints), 
+                       "P5" = numeric(cecurvepoints), 
+                       "P10"= numeric(cecurvepoints), 
+                       "P20"= numeric(cecurvepoints), 
+                       "P30"= numeric(cecurvepoints), 
+                       "P40"= numeric(cecurvepoints), 
+                       "P50"= numeric(cecurvepoints))
+ 
+  ## get the base data tables - no need to put these inside the loop.
+  filenames = fnames(R=Rzero, imm=immonoff, asymp=asymplvl, iso=isolvl)
+  nv_raw = process_simulations(filenames$nv, vaccineprice=0)
+  for(i in c(2, 5, 10, 20, 30, 40, 50)){
     ## WHAT FILES DO YOU WANT TO PROCESS?
-    filenames = fnames(imm=1, asymp=10, iso=50)
-    nv_raw = process_simulations(filenames$nv, vaccineprice=0)
     wv_raw = process_simulations(filenames$wv, vaccineprice=i)
     ## since we are elimnating zeros, these might be different size data tables
     ## for easy bootstrap we need the same number of rows
@@ -215,33 +232,46 @@ for(i in c(2, 5, 10, 20, 30, 40, 50)){
     icerdt$nvdalys = nv_raw[1:numrows, ]$totaldalys
     icerdt$wvcosts = wv_raw[1:numrows, ]$totalcosts
     icerdt$wvdalys = wv_raw[1:numrows, ]$totaldalys
-
+    
     set.seed(912)
     b = boot(icerdt, icerbootstrap, R = 2000)
     #b.conf = boot.ci(b, index=1) ## index = 1 is the ICER, index=2 is the cost diff, index=3 is the DALY diff
+    
+    c = as.matrix(b$t[, c(4, 5)])  ## get the costs from bootstrap data
+    e = as.matrix(b$t[, c(6, 7)])  ## get the effects from bootstrap data
+    ## create analysis
+    wtpvec = seq(from = 0, to = 50000, by = 200)
+    mc = bcea(e, c, ref=1, interventions = c("With Vaccine", "No Vaccine"), Kmax =100000, wtp = wtpvec)
+   
+    ## remove the manual seed
     rm(.Random.seed, envir=globalenv()) ## remove the set seed
     
     rst[, paste0("P", i)] = b$t[, 1]
+    cecurve[, paste0("P", i)] = mc$ceac
+ 
     #btresults = data.table(cost = b$t[, 2], daly = b$t[, 3])
-    
-    ## plot the DT - the mean costs and mean DALYs
-    ##gg = ggplot()
-    #gg = gg + geom_point(data = btresults, aes(y = cost, x = daly), color="#000000")
-    ## if changing the xend, make sure to change the yend (consider y=mx+b, b = 0 in this case)
-    #gg = gg + geom_segment(aes(x = 0, xend = (1.2), y = 0, yend = (b.conf$percent[4])*(1.2)), linetype="twodash", size=1.25)
-    #gg = gg + geom_segment(aes(x = 0, xend = (1.2), y = 0, yend = (b.conf$percent[5])*(1.2)), linetype="twodash", size=1.25)
-    #gg = gg + xlab("DALY Difference") + ylab("Cost Difference") + theme_minimal()
-    #gg = gg + scale_x_continuous(limits = c(-1, 1.2), breaks=seq(-1, 5, by=.2))
-    #gg = gg + scale_y_continuous(limits = c(-75000, 75000))
-    #gg = gg + geom_vline(xintercept=0)
-    #gg = gg + geom_hline(yintercept=0)
-    #gg = gg + theme(legend.position="none") + ggtitle(paste0("Vaccine price: $", vp))
-    #gg = gg + theme(panel.grid.minor = element_blank())
-    #savefn = paste("bday_", formatC(i/10,width=5,flag = "0"), ".png", sep="")
-    #ggsave(savefn, plot=gg)
+  }
+  fntowrite = paste0("Pre", immonoff, "Asymp", asymplvl, "Iso", isolvl, ".dat")
+  fncetowrite = paste0("Pre", immonoff, "Asymp", asymplvl, "Iso", isolvl, "_CEAC.dat")
+  fwrite(rst, file = fntowrite, col.names = F, row.names = F)
+  fwrite(cecurve, file = fncetowrite, col.names = F, row.names = F)
 }
+
+plot_icer <- function(btdata){
+  
+}
+
+run_analysis("R022", 0, 10, 10)
+run_analysis("R022", 0, 10, 50)
+run_analysis("R022", 0, 90, 10)
+run_analysis("R022", 0, 90, 50)
+run_analysis("R022", 1, 10, 10)
+run_analysis("R022", 1, 10, 50)
+run_analysis("R022", 1, 90, 10)
+run_analysis("R022", 1, 90, 50)
+
 ## the file to write should comes from the results above. Name accordingly, fn=fnames() function call above
-fwrite(rst, file = "Pre1Asymp10Iso10.dat", col.names = F, row.names = F)
+
 #ggplot(rst, aes("P2", P2)) + geom_boxplot()
 
 #paper

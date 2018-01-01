@@ -24,9 +24,9 @@ include("interaction.jl");
 function main(cb, simulationnumber::Int64, P::ZikaParameters)   
     
     ##
-    #if P.transmission == 0.0
-    #  warning("Transmission value is set to zero - no disease will happen")
-    #end
+    if P.transmission == 0.0
+      warning("Transmission value is set to zero - no disease will happen")
+    end
     
     ## the grids for humans and mosquitos
     humans = Array{Human}(P.grid_size_human)
@@ -51,7 +51,6 @@ function main(cb, simulationnumber::Int64, P::ZikaParameters)
     micro_ctr = zeros(Int64, P.sim_time)
     vac_gen_ctr = zeros(Int64, P.sim_time)
     vac_pre_ctr = zeros(Int64, P.sim_time)
-    recovered_ctr = zeros(Int64, P.sim_time)
     testctr = zeros(Int64, P.sim_time)
     
     ## simulation setup functions
@@ -82,7 +81,7 @@ function main(cb, simulationnumber::Int64, P::ZikaParameters)
     
         ## end of day update for humans + data collection
         for i=1:P.grid_size_human    
-            increase_timestate(humans[i], P)  ## this will always set a swap if timeinstate has expired.            
+            increase_timestate(humans[i], P)
             if humans[i].swap != UNDEF ## person is swapping, update proper counters
                 if humans[i].swap == LAT 
                   latent_ctr[t] += 1           
@@ -106,29 +105,31 @@ function main(cb, simulationnumber::Int64, P::ZikaParameters)
                   if humans[i].latentfrom == 1 
                     bite_symp_ctr[max(1, t - humans[i].statetime - 1)] += 1
                   elseif humans[i].latentfrom == 2
-                    sex_symp_ctr[max(1, t - humans[i].statetime - 1)] += 1                      
+                    sex_symp_ctr[max(1, t - humans[i].statetime - 1)] += 1     
                   end       
                   ## count if a women is pregnant and are sympotmatic (only if latentfrom > 0 (= 0 for the initial cases))
                   if humans[i].ispregnant == true && humans[i].timeinpregnancy < 270 && humans[i].latentfrom > 0
                     preg_symp_ctr[max(1, t - humans[i].statetime - 1)]  += 1
                   end
+
+                  
                   if humans[i].swap == SYMP 
                     make_human_symptomatic(humans[i], P)
                   else
                     make_human_sympisolated(humans[i], P)
-                  end                      
+                  end    
+                  
                 elseif humans[i].swap == ASYMP      
                   if humans[i].latentfrom == 1 
                     bite_asymp_ctr[max(1, t - humans[i].statetime - 1)] += 1
                   elseif humans[i].latentfrom == 2
-                    sex_asymp_ctr[max(1, t - humans[i].statetime - 1)] += 1                    
+                    sex_asymp_ctr[max(1, t - humans[i].statetime - 1)] += 1   
                   end  
                   if humans[i].ispregnant == true && humans[i].timeinpregnancy < 270 && humans[i].latentfrom > 0
                     preg_asymp_ctr[max(1, t - humans[i].statetime - 1)]  += 1
                   end 
                   make_human_asymptomatic(humans[i], P)
                 elseif humans[i].swap == REC
-                  recovered_ctr[max(1, t - humans[i].statetime - 1)] += 1
                   make_human_recovered(humans[i], P) 
                 elseif humans[i].swap == SUSC
                   print("swap set to sus - never happen")
@@ -170,58 +171,58 @@ function main(cb, simulationnumber::Int64, P::ZikaParameters)
     end
     
     ## return the counters 
-    return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr, preg_symp_ctr, preg_asymp_ctr, micro_ctr, vac_gen_ctr, vac_pre_ctr, recovered_ctr, testctr
+    return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr, preg_symp_ctr, preg_asymp_ctr, micro_ctr, vac_gen_ctr, vac_pre_ctr
 end
 
-# function main_calibration(cb, simulationnumber::Int64, P::ZikaParameters)   
-#     #print("starting calibration $simulationnumber on process $(myid()) \n")    
-#     params = P  ## store the incoming parameters in a local variable
-#     ## the grids for humans and mosquitos
-#     humans = Array{Human}(params.grid_size_human)
-#     mosqs  = Array{Mosq}(params.grid_size_mosq)
+function main_calibration(cb, simulationnumber::Int64, P::ZikaParameters)   
+    #print("starting calibration $simulationnumber on process $(myid()) \n")    
+    params = P  ## store the incoming parameters in a local variable
+    ## the grids for humans and mosquitos
+    humans = Array{Human}(params.grid_size_human)
+    mosqs  = Array{Mosq}(params.grid_size_mosq)
 
-#     global calibrated_person = 0
-#     mosq_latent_ctr = 0
-#     newmosq_ctr = 0
+    global calibrated_person = 0
+    mosq_latent_ctr = 0
+    newmosq_ctr = 0
     
-#     ## current season
-#     current_season = SUMMER   #current season
+    ## current season
+    current_season = SUMMER   #current season
 
-#     ## before running the main setups, make sure distributions are setup, make these variables global
-#     sdist_lifetimes, wdist_lifetimes = distribution_hazard_function(params)  #summer/winter mosquito lifetimes
-#     global sdist_lifetimes
-#     global wdist_lifetimes
+    ## before running the main setups, make sure distributions are setup, make these variables global
+    sdist_lifetimes, wdist_lifetimes = distribution_hazard_function(params)  #summer/winter mosquito lifetimes
+    global sdist_lifetimes
+    global wdist_lifetimes
 
-#     ## setup the counters
-#     global latent_ctr = zeros(Int64, params.sim_time)
-#     global bite_symp_ctr = zeros(Int64, params.sim_time)
-#     global bite_asymp_ctr = zeros(Int64, params.sim_time)    
-#     global sex_symp_ctr = zeros(Int64, params.sim_time)
-#     global sex_asymp_ctr = zeros(Int64, params.sim_time)
+    ## setup the counters
+    global latent_ctr = zeros(Int64, params.sim_time)
+    global bite_symp_ctr = zeros(Int64, params.sim_time)
+    global bite_asymp_ctr = zeros(Int64, params.sim_time)    
+    global sex_symp_ctr = zeros(Int64, params.sim_time)
+    global sex_asymp_ctr = zeros(Int64, params.sim_time)
 
-#     #global ihts = zeros(Int64, 2) ## two is arbritrary
-#     #global ihta = zeros(Int64, 2)
+    #global ihts = zeros(Int64, 2) ## two is arbritrary
+    #global ihta = zeros(Int64, 2)
        
-#     setup_humans(humans)              ## initializes the empty array
-#     setup_human_demographics(humans)  ## setup age distribution, male/female 
-#     #setup_sexualinteractionthree(humans)   ## setup sexual frequency, and partners
-#     setup_mosquitos(mosqs, current_season)
-#     setup_mosquito_random_age(mosqs, params)
-#     setup_rand_initial_latent(humans, params)    
-#     calibrated_person = find(x -> x.health == LAT, humans)[1]   
-#     #return humans[calibrated_person].latentfrom
-#     for t=1:params.sim_time
-#         increase_mosquito_age(mosqs, current_season)        
-#         bite_interaction_calibration(humans, mosqs, params)
-#         #sexual_interaction(humans, mosqs, params)
-#         timeinstate_plusplus(humans, mosqs, t, params)
-#         cb(1) ## increase the progress metre by 1.. callback function
+    setup_humans(humans)              ## initializes the empty array
+    setup_human_demographics(humans)  ## setup age distribution, male/female 
+    #setup_sexualinteractionthree(humans)   ## setup sexual frequency, and partners
+    setup_mosquitos(mosqs, current_season)
+    setup_mosquito_random_age(mosqs, params)
+    setup_rand_initial_latent(humans, params)    
+    calibrated_person = find(x -> x.health == LAT, humans)[1]   
+    #return humans[calibrated_person].latentfrom
+    for t=1:params.sim_time
+        increase_mosquito_age(mosqs, current_season)        
+        bite_interaction_calibration(humans, mosqs, params)
+        #sexual_interaction(humans, mosqs, params)
+        timeinstate_plusplus(humans, mosqs, t, params)
+        cb(1) ## increase the progress metre by 1.. callback function
          
-#     end ##end of time 
+    end ##end of time 
     
-#     return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr
+    return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr
 
-# end
+end
 
 
 #  numberofsims = 500
