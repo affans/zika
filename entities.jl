@@ -131,6 +131,52 @@ function setup_vaccination_two(h::Array{Human}, P::ZikaParameters)
     ## 2) any women not vaccinated previously and is pregnant or becomes pregnant, 80% coverage
     ## 3) any woman on other age (9 - 15, 49+), or all men (9-60) are 10%
 
+	genvac = 0
+    prevac = 0
+
+      ## first check if there is even coverage to be had 
+      if (P.coverage_general + P.coverage_pregnant + P.coverage_reproductionAge) > 0       
+        genpop_males = find(x -> (x.age >= 9 && x.age <= 60) && x.gender == MALE, h)
+        for i = 1:length(genpop_males)
+            rn = rand()
+            if rn < P.coverage_general
+                h[genpop_males[i]].isvaccinated = true
+                h[genpop_males[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
+                genvac += 1
+            end
+        end
+
+        genpop_females = find(x -> ((x.age >= 9 && x.age < 15) || (x.age > 49 && x.age <= 60)) && (x.gender == FEMALE), h)
+        for i = 1:length(genpop_females)
+            rn = rand()
+            if rn < P.coverage_general
+                h[genpop_females[i]].isvaccinated = true
+                h[genpop_females[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
+                genvac += 1
+            end
+        end
+        
+        nonpreg_women = find(x -> (x.gender == FEMALE) && (x.age >= 15 && x.age <= 49)) ##Womens in reproductive age, regardless the pregnancy status
+        for i = 1:length(nonpreg_women)                   
+            rn = rand()
+            if rn < P.coverage_reproductionAge
+                h[nonpreg_women[i]].isvaccinated = true
+                h[nonpreg_women[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
+                genvac += 1
+            end
+        end
+        
+        preg_women = find(x -> x.gender == FEMALE && x.age >= 15 && x.age <= 49 && x.ispregnant == true && x.isvaccinated == false, h)
+        for i = 1:length(preg_women)   ###who didn't get vaccinated before and is pregnant has another probability of vaccination.
+            rn = rand()
+            if rn < P.coverage_pregnant
+                h[preg_women[i]].isvaccinated = true
+                h[preg_women[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
+                prevac += 1
+            end
+        end
+    end
+    return genvac, prevac
 end
 
 function setup_vaccination(h::Array{Human}, P::ZikaParameters)

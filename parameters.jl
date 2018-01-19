@@ -76,7 +76,8 @@
 
     ## vaccine parameters    
     coverage_general::Float64 = 0.0 # 0.10
-    coverage_pregnant::Float64 = 0.0 #0.60
+    coverage_pregnant::Float64 = 0.0 #0.80
+    coverage_reproductionAge64::Float64 = 0.0 #0.6
     efficacy_min::Float64 = 0.60
     efficacy_max::Float64 = 0.90
 
