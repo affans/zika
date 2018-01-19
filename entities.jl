@@ -125,6 +125,13 @@ function setup_pregnant_women(h::Array{Human}, P::ZikaParameters)
     end
 end
 
+function setup_vaccination_two(h::Array{Human}, P::ZikaParameters)
+    ## go through different subgroups of populations, and vaccinate the groups
+    ## 1) 60% coverage of women in reproductive age (pregnant or non-pregnant)
+    ## 2) any women not vaccinated previously and is pregnant or becomes pregnant, 80% coverage
+    ## 3) any woman on other age (9 - 15, 49+), or all men (9-60) are 10%
+
+end
 
 function setup_vaccination(h::Array{Human}, P::ZikaParameters)
     ## go through different subsets of population and vaccinate according to the right parameters

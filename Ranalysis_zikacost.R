@@ -8,6 +8,7 @@ library(reshape2)
 #library(grid)
 #library(RColorBrewer)
 library(boot)
+library(BCEA)
 #setwd("/stor4/share/zika_costanalysis/R022/Affan/No Preimmunity/Asymp10Iso10_Coverage00//")
 
 
@@ -69,8 +70,8 @@ process_micro <- function(dt){
 }
 
 fnames <- function(R = "R022", imm=0, asymp=10, iso=10){
-  #pp = paste0("/Users/abmlab/Dropbox/Zika Vaccine/Affan/", R, "/")
-  pp = paste0("E:/Dropbox/Zika Vaccine/Affan/", R, "/")
+  pp = paste0("/Users/abmlab/Dropbox/Zika Vaccine/Affan/", R, "/")
+  #pp = paste0("E:/Dropbox/Zika Vaccine/Affan/", R, "/")
   asympiso = paste0("/Asymp", asymp, "Iso", iso)
   pre = paste0("Pre",imm)
   nv = paste0(pp, asympiso, "_Coverage00", pre, "/")
@@ -197,32 +198,42 @@ icerbootstrap <- function(dat, idx){
   return(c(costdiff/dalydiff, costdiff, dalydiff, wvc, nvc, nvd, wvd))
 }
 
+## we dont use this function, see comment inside.
+remove_outliers <- function(x, na.rm = TRUE, ...) {
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
+  H <- 1.5 * IQR(x, na.rm = na.rm)
+  y <- x
+  y[x < (qnt[1] - H)] <- NA
+  y[x > (qnt[2] + H)] <- NA
+  y
+  
+  ## more elegant solution
+  ## x[!x %in% boxplot.stats(x)$out]
+  ## https://stackoverflow.com/questions/4787332/how-to-remove-outliers-from-a-dataset
+}
+
+
 
 
 
 run_analysis <- function(Rzero, immonoff, asymplvl, isolvl){
-  rst = data.table("P2" = numeric(2000), 
-                   "P5" = numeric(2000), 
-                   "P10"= numeric(2000), 
-                   "P20"= numeric(2000), 
-                   "P30"= numeric(2000), 
-                   "P40"= numeric(2000), 
-                   "P50"= numeric(2000))
-  cecurvepoints = 501 ## from beac package
-  cecurve = data.table("P2" = numeric(cecurvepoints), 
-                       "P5" = numeric(cecurvepoints), 
-                       "P10"= numeric(cecurvepoints), 
-                       "P20"= numeric(cecurvepoints), 
-                       "P30"= numeric(cecurvepoints), 
-                       "P40"= numeric(cecurvepoints), 
-                       "P50"= numeric(cecurvepoints))
- 
+  ## the willingness to pay vector for BCEA
+  wtpvec = seq(from = 0, to = 50000, by = 50)
+  ## vaccine prices to loop over
+  vaccineprices = seq(from = 2, to = 50, by = 1)
+  
+  ## allocate return matrix
+  data.CE <- matrix(0,nrow=length(wtpvec),ncol=length(vaccineprices));
+  data.ICER <- matrix(0,nrow=2000,ncol=length(vaccineprices)); ## for 2000 bootstrap values
+  
   ## get the base data tables - no need to put these inside the loop.
   filenames = fnames(R=Rzero, imm=immonoff, asymp=asymplvl, iso=isolvl)
   nv_raw = process_simulations(filenames$nv, vaccineprice=0)
-  for(i in c(2, 5, 10, 20, 30, 40, 50)){
+  for(i in 1:length(vaccineprices)){
+    #print(i)
     ## WHAT FILES DO YOU WANT TO PROCESS?
-    wv_raw = process_simulations(filenames$wv, vaccineprice=i)
+    wv_raw = process_simulations(filenames$wv, vaccineprice=vaccineprices[i])
+    
     ## since we are elimnating zeros, these might be different size data tables
     ## for easy bootstrap we need the same number of rows
     numrows = min(nrow(nv_raw), nrow(wv_raw))
@@ -233,42 +244,51 @@ run_analysis <- function(Rzero, immonoff, asymplvl, isolvl){
     icerdt$wvcosts = wv_raw[1:numrows, ]$totalcosts
     icerdt$wvdalys = wv_raw[1:numrows, ]$totaldalys
     
-    set.seed(912)
+    set.seed(913)
     b = boot(icerdt, icerbootstrap, R = 2000)
     #b.conf = boot.ci(b, index=1) ## index = 1 is the ICER, index=2 is the cost diff, index=3 is the DALY diff
+    # extract the mean costs and effects from bootstrap results. 
     
-    c = as.matrix(b$t[, c(4, 5)])  ## get the costs from bootstrap data
-    e = as.matrix(b$t[, c(6, 7)])  ## get the effects from bootstrap data
+    ## capture the bootstrap results in a data table
+    tmp_bt = data.table(b$t)
+    ## remove the outliers from this (FOR CEAC PURPOSES ONLY) by using the boxplot.stats() function
+    tmp_bt = tmp_bt[!(V1 %in% boxplot.stats(tmp_bt$V1)$out)]
+    
+    #c = as.matrix(b$t[, c(4, 5)])  ## get the costs from bootstrap data
+    #e = as.matrix(b$t[, c(6, 7)])  ## get the effects from bootstrap data
+    c = as.matrix(tmp_bt[, c("V4", "V5")])
+    e = as.matrix(tmp_bt[, c("V6", "V7")])
+    
     ## create analysis
-    wtpvec = seq(from = 0, to = 50000, by = 200)
-    mc = bcea(e, c, ref=1, interventions = c("With Vaccine", "No Vaccine"), Kmax =100000, wtp = wtpvec)
+    mc = bcea(e, c, ref=1, interventions = c("With Vaccine", "No Vaccine"), Kmax =50000, wtp = wtpvec)
    
     ## remove the manual seed
     rm(.Random.seed, envir=globalenv()) ## remove the set seed
     
-    rst[, paste0("P", i)] = b$t[, 1]
-    cecurve[, paste0("P", i)] = mc$ceac
- 
+    #  rst[, paste0("P", i)] = b$t[, 1]
+    #  cecurve[, paste0("P", i)] = mc$ceac
+    data.ICER[, i] <- b$t[, 1]
+    data.CE[, i] <- mc$ceac
     #btresults = data.table(cost = b$t[, 2], daly = b$t[, 3])
   }
-  fntowrite = paste0("Pre", immonoff, "Asymp", asymplvl, "Iso", isolvl, ".dat")
-  fncetowrite = paste0("Pre", immonoff, "Asymp", asymplvl, "Iso", isolvl, "_CEAC.dat")
-  fwrite(rst, file = fntowrite, col.names = F, row.names = F)
-  fwrite(cecurve, file = fncetowrite, col.names = F, row.names = F)
+  icerfilename = paste0("Pre", immonoff, "Asymp", asymplvl, "Iso", isolvl, ".dat")
+  ceacfilename = paste0("Pre", immonoff, "Asymp", asymplvl, "Iso", isolvl, "CEAC.dat")
+  fwrite(data.table(data.ICER), file = icerfilename, col.names = F, row.names = F)
+  fwrite(data.table(data.CE), file = ceacfilename, col.names = F, row.names = F)
 }
 
-plot_icer <- function(btdata){
-  
-}
 
-run_analysis("R022", 0, 10, 10)
-run_analysis("R022", 0, 10, 50)
-run_analysis("R022", 0, 90, 10)
-run_analysis("R022", 0, 90, 50)
-run_analysis("R022", 1, 10, 10)
-run_analysis("R022", 1, 10, 50)
-run_analysis("R022", 1, 90, 10)
-run_analysis("R022", 1, 90, 50)
+
+run_analysis("R028", 0, 10, 10)
+run_analysis("R028", 0, 10, 50)
+run_analysis("R028", 0, 90, 10)
+run_analysis("R028", 0, 90, 50)
+run_analysis("R028", 1, 10, 10)
+run_analysis("R028", 1, 10, 50)
+run_analysis("R028", 1, 90, 10)
+run_analysis("R028", 1, 90, 50)
+
+
 
 ## the file to write should comes from the results above. Name accordingly, fn=fnames() function call above
 
