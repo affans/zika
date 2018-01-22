@@ -71,7 +71,7 @@ function dataprocess(results, numofsims, P)
       mic[i, :] = results[i][8] 
       vgen[i, :] = results[i][9] 
       vpre[i, :] = results[i][10]       
-      rec[i, :] = results[i][11] 
+      #rec[i, :] = results[i][11] 
       
   end 
   
@@ -102,7 +102,7 @@ function dataprocess(results, numofsims, P)
   writedlm(string(dirname, "/micro.dat"), mic)
   writedlm(string(dirname, "/vacgeneral.dat"), vgen)
   writedlm(string(dirname, "/vacpregnant.dat"), vpre)    
-  writedlm(string(dirname, "/recovered.dat"), rec)      
+  #writedlm(string(dirname, "/recovered.dat"), rec)      
 end
 
 function run(P, numberofsims) 
@@ -127,9 +127,9 @@ end
 ## setup main Zika Parameters  
 ##scenario one
 
-@everywhere gridsize = 100000
-@everywhere asymp_ten = 0.3187 #0.3947
-@everywhere asymp_ninety = 0.2224 #0.2851
+@everywhere gridsize = 50000  # 100000
+@everywhere asymp_ten = 0.3947 #0.3187 #0.3947
+@everywhere asymp_ninety = 0.2851 #0.2224 #0.2851
 @everywhere runsims = 5000
 
 ## asymp 10, iso 10, covgen 0, covpreg 0, preimmunity 0

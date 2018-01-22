@@ -54,7 +54,7 @@ for t=1:P.sim_time
     cb(1) ## increase the progress metre by 1.. callback function
 end ##end of time 
 
-a = find(x-> x.gender == FEMALE && x.age >= 15 && x.age <= 49 && x.ispregnant == true, humans)
+a = find(x-> x.gender == FEMALE && x.age >= 15 && x.age <= 49, humans)
 
 humans[10].timeinpregnancy = 268
 baby_born(humans, P)
@@ -67,5 +67,18 @@ find(x-> x.gender == FEMALE && x.age <= 49 && x.age >= 15 && x.ispregnant== true
 find(x -> x.isvaccinated == true, humans)
 
 
+P = ZikaParameters(preimmunity = 0, transmission = 1.0, coverage_pregnant=0.05, coverage_general=0.0, preg_percentage=1.0)
+    humans = Array{Human}(P.grid_size_human)
 
+    setup_humans(humans)                      ## initializes the empty array
+    setup_human_demographics(humans)          ## setup age distribution, male/female 
+    setup_preimmunity(humans , P)
+    setup_pregnant_women(humans, P)
+    g, p = setup_vaccination(humans, P)       ## setup initial vaccination if coverage is more than 0. (g, p) are the number of people vaccinated (general and pregnant women)
+
+
+    a = find(x-> x.gender == FEMALE && x.age >= 15 && x.age <= 49 && x.ispregnant == true , humans)
+    find(x -> x.ispregnant == true, humans)
+
+rand(find(x->  x.age == 32, humans))
 

@@ -79,49 +79,59 @@ function setup_preimmunity(h::Array{Human}, P::ZikaParameters)
     return ctr
 end
 
+
+
 function setup_pregnant_women(h::Array{Human}, P::ZikaParameters)
     ## get the number of eligible, this is too slow just use loop/if
     sd = find(x -> x.gender == FEMALE && x.age >= 15 && x.age <= 49, h)
-      
-    totalnumber = length(sd)*P.preg_percentage
+    totalnumber = length(sd)*(44*0.75 + 120*0.167)/1000 ## parameters from seyed
 
+    ## for each agegroup, probability of a falling in an age group
     probvec = [0.2082, 0.2996, 0.2385, 0.1470, 0.0773, 0.0254, 1-(0.2082+0.2996+0.2385+0.1470+0.0773+0.0254)]
-    ag = [Int(round(probvec[i]*totalnumber)) for i=1:7]
-    
-    a = find(x -> x.gender == FEMALE && x.age >= 15 && x.age <= 19, h)
-    for ii = 1:ag[1]        
-        h[a[ii]].ispregnant = true
-        h[a[ii]].timeinpregnancy = rand(0:270)
-    end
-    a = find(x -> x.gender == FEMALE && x.age >= 20 && x.age <= 24, h)
-    for ii = 1:ag[2]
-        h[a[ii]].ispregnant = true
-        h[a[ii]].timeinpregnancy = rand(0:270)
-    end
-    a = find(x -> x.gender == FEMALE && x.age >= 25 && x.age <= 29, h)
-    for ii = 1:ag[3]
-        h[a[ii]].ispregnant = true
-        h[a[ii]].timeinpregnancy = rand(0:270)
-    end
-    a = find(x -> x.gender == FEMALE && x.age >= 30 && x.age <= 34, h)
-    for ii = 1:ag[4]
-        h[a[ii]].ispregnant = true
-        h[a[ii]].timeinpregnancy = rand(0:270)
-    end
-    a = find(x -> x.gender == FEMALE && x.age >= 35 && x.age <= 39, h)
-    for ii = 1:ag[5]
-        h[a[ii]].ispregnant = true
-        h[a[ii]].timeinpregnancy = rand(0:270)
-    end
-    a = find(x -> x.gender == FEMALE && x.age >= 40 && x.age <= 44, h)
-    for ii = 1:ag[6]
-        h[a[ii]].ispregnant = true
-        h[a[ii]].timeinpregnancy = rand(0:270)
-    end
-    a = find(x -> x.gender == FEMALE && x.age >= 45 && x.age <= 49, h)
-    for ii = 1:ag[7]
-        h[a[ii]].ispregnant = true
-        h[a[ii]].timeinpregnancy = rand(0:270)
+    pd = Categorical(probvec)
+
+    ## go through all the people we have to make pregnant
+    @inbounds for i=1:totalnumber
+        ## which age group to make pregnant
+        ag = rand(pd)
+        @match ag begin
+            1 => begin
+                    minage = 15
+                    maxage = 19 
+                 end 
+            2 => begin
+                    minage = 20
+                    maxage = 24 
+                end 
+            3 => begin
+                    minage = 25
+                    maxage = 29 
+                 end 
+            4 => begin
+                    minage = 30
+                    maxage = 34
+                 end 
+            5 => begin
+                    minage = 35
+                    maxage = 39
+                 end 
+            6 => begin
+                    minage = 40
+                    maxage = 44 
+                 end 
+            7 => begin
+                    minage = 45
+                    maxage = 49 
+                 end 
+            _ => println("default")
+        end
+        ## find a random human id in the correct age group
+        a =find(x -> x.gender == FEMALE && x.age >= minage && x.age <= maxage, h)
+        if length(a) > 0 
+            aid = rand(a)
+            h[aid].ispregnant = true
+            h[aid].timeinpregnancy = rand(0:270)
+        end        
     end
 end
 
@@ -134,9 +144,11 @@ function setup_vaccination_two(h::Array{Human}, P::ZikaParameters)
 	genvac = 0
     prevac = 0
 
-      ## first check if there is even coverage to be had 
-      if (P.coverage_general + P.coverage_pregnant + P.coverage_reproductionAge) > 0       
+    ## first check if there is even coverage to be had 
+    if (P.coverage_general + P.coverage_pregnant + P.coverage_reproductionAge) > 0      
+        ## find all general_population males 
         genpop_males = find(x -> (x.age >= 9 && x.age <= 60) && x.gender == MALE, h)
+
         for i = 1:length(genpop_males)
             rn = rand()
             if rn < P.coverage_general
@@ -155,8 +167,8 @@ function setup_vaccination_two(h::Array{Human}, P::ZikaParameters)
                 genvac += 1
             end
         end
-        
-        nonpreg_women = find(x -> (x.gender == FEMALE) && (x.age >= 15 && x.age <= 49)) ##Womens in reproductive age, regardless the pregnancy status
+    
+        nonpreg_women = find(x -> x.gender == FEMALE && (x.age >= 15 && x.age <= 49) && x.ispregnant == false, h)
         for i = 1:length(nonpreg_women)                   
             rn = rand()
             if rn < P.coverage_reproductionAge
