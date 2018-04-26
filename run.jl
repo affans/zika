@@ -1,7 +1,7 @@
 include("SlurmConnect.jl")
 using ProgressMeter
 using PmapProgressMeter
-using DataArrays, DataFrames
+using DataFrames
 using Match
 using ParallelDataTransfer
 using QuadGK
@@ -22,7 +22,7 @@ s = SlurmManager(512)
 @eval Base.Distributed import Base.warn_once
 addprocs(s, partition="defq", N=16)
 #addprocs(40)
-#addprocs([("node003", 32), ("node004", 32), ("node005", 32), ("node006", 32), ("node007", 32),("node008", 32), ("node010", 32),("node011", 32),("node012", 32),("node013", 32),("node014", 32), ("node015", 32)])
+#addprocs([("node003", 32), ("node004", 32)])
 
 println("added $(nworkers()) processors")
 info("starting @everywhere include process...")
@@ -113,6 +113,29 @@ function run(P, numberofsims)
   info("starting pmap...\n")
   dataprocess(results, numberofsims, P)
 end
+
+function get_preg_distribution(P)
+  cnts = zeros(100) ## age 1 to 100
+  for i in 1:1000
+    humans = Array{Human}(P.grid_size_human)
+    setup_humans(humans)                      ## initializes the empty array
+    setup_human_demographics(humans)          ## setup age distribution, male/female 
+    setup_preimmunity(humans , P)
+    setup_pregnant_women(humans, P)
+
+    a = [humans[i].age for i in find(x -> x.ispregnant == true, humans)]  
+    for i in a
+      cnts[i] += 1
+    end
+  end  
+  return cnts
+end
+
+function get_reprod 
+
+end
+
+
 
 ##### MAIN CODE
 

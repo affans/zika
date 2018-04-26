@@ -9,8 +9,9 @@ library(reshape2)
 #library(RColorBrewer)
 library(boot)
 library(BCEA)
-#setwd("/stor4/share/zika_costanalysis/R022/Affan/No Preimmunity/Asymp10Iso10_Coverage00//")
 
+
+## the following three functions are for DALY computations, from the Deeseiver paper 
 
 ## the integrand for burden() 
 term <- function(x, K, C = 0.1658, beta = 0.04, r, a){
@@ -37,10 +38,44 @@ daly <- function(DW, A, LD, LY, BA = 0, Dis=0.03, K=0){
 #daly_v = Vectorize(daly, c("LD", "LY"), SIMPLIFY = T)
 ## exmaple from the pdf 
 #daly(DW = 0.16, A = 40, LD = 20, LY = 0, BA = 0, Dis = 0.03, K=0)
-daly(DW = 0.16, A = 0, LD = 8.483575, LY = 0, BA = 0, Dis = 0.03, K=0)
+#daly(DW = 0.16, A = 0, LD = 8.483575, LY = 0, BA = 0, Dis = 0.03, K=0)
 
-## process microcephaly and calculate DALYs
+## returns a named list of strings, corresponding to simulation data output
+fnames <- function(R = "R022", imm=0, asymp=10, iso=10){
+  #pp = paste0("/Users/abmlab/Dropbox/Zika Vaccine/Affan/", R, "/")
+  #pp = paste0("E:/Dropbox/Zika Vaccine/Affan/", R, "/")
+  #pp = paste0("")
+  asympiso = paste0("/Asymp", asymp, "Iso", iso)
+  pre = paste0("Pre",imm)
+  nv = paste0(pp, asympiso, "_Coverage00", pre, "/")
+  wv = paste0(pp, asympiso, "_Coverage1080", pre, "/")
+  lv = c("wv", "nv")
+  mainlist = list()
+  mainlist["dir"] = paste0(imm, asymp)
+  for(i in lv){
+    d = eval(parse(text=i)) ## get either wv or nv filepath from the string "wv" or "nv"
+    fnlist = list()
+    fnlist["latent"] = paste0(d, "latent.dat")
+    fnlist["bitesymp"] = paste0(d, "bitesymp.dat")
+    fnlist["sexsymp"] = paste0(d, "sexsymp.dat")
+    fnlist["biteasymp"] = paste0(d, "biteasymp.dat")
+    fnlist["sexasymp"] = paste0(d, "sexasymp.dat")
+    fnlist["micro"] = paste0(d, "micro.dat")
+    fnlist["pregsymp"] = paste0(d, "pregsymp.dat")
+    fnlist["pregasymp"] = paste0(d, "pregasymp.dat")
+    fnlist["vacgeneral"] = paste0(d, "vacgeneral.dat")
+    fnlist["vacpregnant"] = paste0(d, "vacpregnant.dat")
+    fnlist["recovered"] = paste0(d, "recovered.dat")
+    mainlist[i] = list(fnlist)
+  }  
+  return(mainlist)
+}
+
+
+
+## process microcephaly- input dt is a datatable at simulation level resolution with the total number of microcephaly cases in each simulation 
 process_micro <- function(dt){
+
   ## mdt is the intermediate datatable that holds the calculations per micro case
   mdt = data.table("simid"=numeric(), "die"=numeric(), "expectancy"=numeric(), "microlife"=numeric(), "daly"=numeric())
   
@@ -69,36 +104,6 @@ process_micro <- function(dt){
   return(list(dt=dt, summary=summary(mdt$totaldalys)))
 }
 
-fnames <- function(R = "R022", imm=0, asymp=10, iso=10){
-  pp = paste0("/Users/abmlab/Dropbox/Zika Vaccine/Affan/", R, "/")
-  #pp = paste0("E:/Dropbox/Zika Vaccine/Affan/", R, "/")
-  asympiso = paste0("/Asymp", asymp, "Iso", iso)
-  pre = paste0("Pre",imm)
-  nv = paste0(pp, asympiso, "_Coverage00", pre, "/")
-  wv = paste0(pp, asympiso, "_Coverage1080", pre, "/")
-  lv = c("wv", "nv")
-  mainlist = list()
-  mainlist["dir"] = paste0(imm, asymp)
-  for(i in lv){
-    d = eval(parse(text=i)) ## get either wv or nv filepath from the string "wv" or "nv"
-    fnlist = list()
-    fnlist["latent"] = paste0(d, "latent.dat")
-    fnlist["bitesymp"] = paste0(d, "bitesymp.dat")
-    fnlist["sexsymp"] = paste0(d, "sexsymp.dat")
-    fnlist["biteasymp"] = paste0(d, "biteasymp.dat")
-    fnlist["sexasymp"] = paste0(d, "sexasymp.dat")
-    fnlist["micro"] = paste0(d, "micro.dat")
-    fnlist["pregsymp"] = paste0(d, "pregsymp.dat")
-    fnlist["pregasymp"] = paste0(d, "pregasymp.dat")
-    fnlist["vacgeneral"] = paste0(d, "vacgeneral.dat")
-    fnlist["vacpregnant"] = paste0(d, "vacpregnant.dat")
-    fnlist["recovered"] = paste0(d, "recovered.dat")
-    mainlist[i] = list(fnlist)
-  }
-  
-  return(mainlist)
-}
-
 
 
 process_simulations <- function(fn, vaccineprice=0){
@@ -113,7 +118,7 @@ process_simulations <- function(fn, vaccineprice=0){
   gbscost = 29027
   microcost = 91925
   
-  ## process symptomatic costs
+  ## read file names 
   l = fread(fn$latent)
   bitesymp = fread(fn$bitesymp)
   sexsymp = fread(fn$sexsymp)
@@ -185,7 +190,6 @@ process_simulations <- function(fn, vaccineprice=0){
   #return(rdt)
 }
 
-
 ## bootstraping
 icerbootstrap <- function(dat, idx){
   wvc = mvc = mean(dat[idx, wvcosts])
@@ -198,7 +202,7 @@ icerbootstrap <- function(dat, idx){
   return(c(costdiff/dalydiff, costdiff, dalydiff, wvc, nvc, nvd, wvd))
 }
 
-## we dont use this function, see comment inside.
+## we dont use this function, see comment for more elegant solution inside.
 remove_outliers <- function(x, na.rm = TRUE, ...) {
   qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
   H <- 1.5 * IQR(x, na.rm = na.rm)
@@ -213,21 +217,25 @@ remove_outliers <- function(x, na.rm = TRUE, ...) {
 }
 
 
-
-
-
 run_analysis <- function(Rzero, immonoff, asymplvl, isolvl){
+  ## the main function for cost-effectiveness analysis
+
   ## the willingness to pay vector for BCEA
   wtpvec = seq(from = 0, to = 50000, by = 50)
+  
   ## vaccine prices to loop over
-  vaccineprices = seq(from = 2, to = 50, by = 1)
+  vaccineprices = seq(from = 2, to = 100, by = 1)
   
-  ## allocate return matrix
+  ## allocate return matrices
   data.CE <- matrix(0,nrow=length(wtpvec),ncol=length(vaccineprices));
-  data.ICER <- matrix(0,nrow=2000,ncol=length(vaccineprices)); ## for 2000 bootstrap values
+  ## for 2000 bootstrap values
+  data.ICER <- matrix(0,nrow=2000,ncol=length(vaccineprices)); 
   
-  ## get the base data tables - no need to put these inside the loop.
+  
+  ## get the base data tables 
   filenames = fnames(R=Rzero, imm=immonoff, asymp=asymplvl, iso=isolvl)
+
+  ## process the simulations without vaccine... dont need to put this inside loop
   nv_raw = process_simulations(filenames$nv, vaccineprice=0)
   for(i in 1:length(vaccineprices)){
     #print(i)
