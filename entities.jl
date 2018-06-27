@@ -135,7 +135,7 @@ function setup_pregnant_women(h::Array{Human}, P::ZikaParameters)
     end
 end
 
-function setup_vaccination_two(h::Array{Human}, P::ZikaParameters)
+function setup_vaccination(h::Array{Human}, P::ZikaParameters)
     ## go through different subgroups of populations, and vaccinate the groups
     ## 1) 60% coverage of women in reproductive age (pregnant or non-pregnant)
     ## 2) any women not vaccinated previously and is pregnant or becomes pregnant, 80% coverage
@@ -190,59 +190,6 @@ function setup_vaccination_two(h::Array{Human}, P::ZikaParameters)
     end
     return genvac, prevac
 end
-
-function setup_vaccination(h::Array{Human}, P::ZikaParameters)
-    ## go through different subsets of population and vaccinate according to the right parameters
-    
-    ## local variables 
-    genvac = 0
-    prevac = 0
-
-    ## first check if there is even coverage to be had 
-    if (P.coverage_general + P.coverage_pregnant) > 0       
-        genpop_males = find(x -> (x.age >= 9 && x.age <= 60) && x.gender == MALE, h)
-        for i = 1:length(genpop_males)
-            rn = rand()
-            if rn < P.coverage_general
-                h[genpop_males[i]].isvaccinated = true
-                h[genpop_males[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
-                genvac += 1
-            end
-        end
-
-        genpop_females = find(x -> ((x.age >= 9 && x.age < 15) || (x.age > 49 && x.age <= 60)) && (x.gender == FEMALE), h)
-        for i = 1:length(genpop_females)
-            rn = rand()
-            if rn < P.coverage_general
-                h[genpop_females[i]].isvaccinated = true
-                h[genpop_females[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
-                genvac += 1
-            end
-        end
-        
-        nonpreg_women = find(x -> (x.gender == FEMALE) && (x.age >= 15 && x.age <= 49) && x.ispregnant == false, h)
-        for i = 1:length(nonpreg_women)
-            rn = rand()
-            if rn < P.coverage_general
-                h[nonpreg_women[i]].isvaccinated = true
-                h[nonpreg_women[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
-                genvac += 1
-            end
-        end
-        
-        preg_women = find(x -> x.gender == FEMALE && x.age >= 15 && x.age <= 49 && x.ispregnant == true, h)
-        for i = 1:length(preg_women)
-            rn = rand()
-            if rn < P.coverage_pregnant
-                h[preg_women[i]].isvaccinated = true
-                h[preg_women[i]].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)
-                prevac += 1
-            end
-        end
-    end
-    return genvac, prevac
-end
-
 
 function setup_sexualinteractionthree(h::Array{Human})  
     ## assign everyone sexual frequency. the function returns 0 if age < 15, so dont deal with it now

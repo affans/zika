@@ -58,7 +58,7 @@ function main(cb, simulationnumber::Int64, P::ZikaParameters)
     setup_human_demographics(humans)          ## setup age distribution, male/female 
     setup_preimmunity(humans, P)
     setup_pregnant_women(humans, P)           ## setup pregant women according to distribution
-    g, p = setup_vaccination_two(humans, P)       ## setup initial vaccination if coverage is more than 0. (g, p) are the number of people vaccinated (general and pregnant women) - add to the counter at the end
+    g, p = setup_vaccination(humans, P)       ## setup initial vaccination if coverage is more than 0. (g, p) are the number of people vaccinated (general and pregnant women) - add to the counter at the end
     setup_sexualinteractionthree(humans)      ## setup sexual frequency, and partners
     setup_mosquitos(mosqs, current_season)    ## setup the mosquito array, including bite distribution
     setup_mosquito_random_age(mosqs, P)       ## assign age and age of death to mosquitos
