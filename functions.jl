@@ -51,3 +51,22 @@ function prot(a)
         return 1
     end
 end
+
+function get_preg_distribution(P)
+    cnts = zeros(100) ## age 1 to 100
+    for i in 1:1000
+      humans = Array{Human}(P.grid_size_human)
+      setup_humans(humans)                      ## initializes the empty array
+      setup_human_demographics(humans)          ## setup age distribution, male/female 
+      setup_preimmunity(humans , P)
+      setup_pregnant_women(humans, P)
+  
+      a = [humans[i].age for i in find(x -> x.ispregnant == true, humans)]  
+      for i in a
+        cnts[i] += 1
+      end
+    end  
+    return cnts
+  end
+  
+  

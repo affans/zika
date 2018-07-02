@@ -79,7 +79,7 @@ function sexual_interaction(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
 end
 
 
-function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
+function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters, calibratedperson)
   ## This function considers the main interaction of the model 
   ## idea: go through all mosquitos, and see if they will bite on their 
 
@@ -88,7 +88,7 @@ function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaPa
 
   ## on this "day", run through bites
   #print("health of calibrated person: $(h[calibrated_person].health) \n")
-  totalbitestoday = 0
+  totalbitestoday = 0 ## counts how many bites the infected calibrated person got
   newmosquitos = 0
   nonisos = find(x -> x.health != SYMPISO, h)  ## go through humans, and find all humans that are not isolated
   for i=1:length(m)
@@ -111,10 +111,11 @@ function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaPa
         
 
         ## 2) infected person - susceptible mosquito
-        if (h[persontobite].health == SYMP || h[persontobite].health == ASYMP) && m[i].health == SUSC && persontobite == calibrated_person
-          totalbitestoday += 1
+        if (h[persontobite].health == SYMP || h[persontobite].health == ASYMP) && m[i].health == SUSC && persontobite == calibratedperson
           
-          #print("Transfer must happen \n")
+          # the persontobite is the calibrated person, count how many total bites he gets from all mosquitos
+          totalbitestoday += 1        
+         
           rn = rand()   # pick a random number
           if h[persontobite].health == SYMP 
             proboftransfer = P.transmission
@@ -123,8 +124,7 @@ function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaPa
           end
           rn = rand()
           if rn < proboftransfer ## mosquito gets infected
-            #print("mosquito is latent...on process: $(myid()) \n")      
-                        
+            #print("mosquito is latent...on process: $(myid()) \n")
             m[i].swap = LAT
             newmosquitos += 1  ## if a mosquito gets sick because of the initial latent, increase the coount
           end    

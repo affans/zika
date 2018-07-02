@@ -7,7 +7,7 @@
 
 using ProgressMeter
 using PmapProgressMeter
-using DataArrays, DataFrames
+using DataFrames
 using Match
 using ParallelDataTransfer
 using QuadGK
@@ -174,59 +174,116 @@ function main(cb, simulationnumber::Int64, P::ZikaParameters)
     return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr, preg_symp_ctr, preg_asymp_ctr, micro_ctr, vac_gen_ctr, vac_pre_ctr
 end
 
-function main_calibration(cb, simulationnumber::Int64, P::ZikaParameters)   
-    #print("starting calibration $simulationnumber on process $(myid()) \n")    
-    params = P  ## store the incoming parameters in a local variable
-    ## the grids for humans and mosquitos
-    humans = Array{Human}(params.grid_size_human)
-    mosqs  = Array{Mosq}(params.grid_size_mosq)
 
-    global calibrated_person = 0
-    mosq_latent_ctr = 0
-    newmosq_ctr = 0
+function main_calibration(simulationnumber::Int64, P::ZikaParameters; callback::Function = x->nothing)   
     
-    ## current season
-    current_season = SUMMER   #current season
+  ##
+  if P.transmission == 0.0
+    warning("Transmission value is set to zero - no disease will happen")
+  end
+  
+  ## the grids for humans and mosquitos
+  humans = Array{Human}(P.grid_size_human)
+  mosqs  = Array{Mosq}(P.grid_size_mosq)
+  
+  ## current season
+  current_season = SUMMER   #current season
 
-    ## before running the main setups, make sure distributions are setup, make these variables global
-    sdist_lifetimes, wdist_lifetimes = distribution_hazard_function(params)  #summer/winter mosquito lifetimes
-    global sdist_lifetimes
-    global wdist_lifetimes
+  ## before running the main setups, make sure distributions are setup, make these variables global
+  sdist_lifetimes, wdist_lifetimes = distribution_hazard_function(P)  #summer/winter mosquito lifetimes
+  global sdist_lifetimes
+  global wdist_lifetimes
 
-    ## setup the counters
-    global latent_ctr = zeros(Int64, params.sim_time)
-    global bite_symp_ctr = zeros(Int64, params.sim_time)
-    global bite_asymp_ctr = zeros(Int64, params.sim_time)    
-    global sex_symp_ctr = zeros(Int64, params.sim_time)
-    global sex_asymp_ctr = zeros(Int64, params.sim_time)
+  ## data collection arrays
+  latent_ctr = zeros(Int64, P.sim_time)
+  bite_symp_ctr = zeros(Int64, P.sim_time)
+  bite_asymp_ctr = zeros(Int64, P.sim_time)    
+  sex_symp_ctr = zeros(Int64, P.sim_time)
+  sex_asymp_ctr = zeros(Int64, P.sim_time)
+  
+  ## simulation setup functions
+  setup_humans(humans)                      ## initializes the empty array
+  setup_human_demographics(humans)          ## setup age distribution, male/female 
+  setup_mosquitos(mosqs, current_season)    ## setup the mosquito array, including bite distribution
+  setup_mosquito_random_age(mosqs, P)       ## assign age and age of death to mosquitos
+  setup_rand_initial_latent(humans, P)      ## introduce initial latent person
+ 
+  calibrated_person = 0
+  mosq_latent_ctr = 0
+  newmosq_ctr = 0
+  calibrated_person = find(x -> x.health == LAT, humans)[1]   
+  ## the main time loop 
+  for t=1:P.sim_time        
+      
+      ## functions to capture zika dynamics
+      increase_mosquito_age(mosqs, current_season)
+      bite_interaction_calibration(humans, mosqs, P, calibrated_person)
 
-    #global ihts = zeros(Int64, 2) ## two is arbritrary
-    #global ihta = zeros(Int64, 2)
-       
-    setup_humans(humans)              ## initializes the empty array
-    setup_human_demographics(humans)  ## setup age distribution, male/female 
-    #setup_sexualinteractionthree(humans)   ## setup sexual frequency, and partners
-    setup_mosquitos(mosqs, current_season)
-    setup_mosquito_random_age(mosqs, params)
-    setup_rand_initial_latent(humans, params)    
-    calibrated_person = find(x -> x.health == LAT, humans)[1]   
-    #return humans[calibrated_person].latentfrom
-    for t=1:params.sim_time
-        increase_mosquito_age(mosqs, current_season)        
-        bite_interaction_calibration(humans, mosqs, params)
-        #sexual_interaction(humans, mosqs, params)
-        timeinstate_plusplus(humans, mosqs, t, params)
-        cb(1) ## increase the progress metre by 1.. callback function
-         
-    end ##end of time 
-    
-    return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr
+      ## end of day update for humans + data collection
+      for i=1:P.grid_size_human    
+          increase_timestate(humans[i], P)
+          if humans[i].swap != UNDEF ## person is swapping, update proper counters
+              if humans[i].swap == LAT 
+                latent_ctr[t] += 1           
+                make_human_latent(humans[i], P)    
+              elseif humans[i].swap == SYMP || humans[i].swap == SYMPISO                ## note: for the initial human latents.. they never get recorded in the latent ctr because their swap is never set to latent
+                ## and also, the initial latent will turn into symp/asymp but indeed they don't get recorded again because their "latentfrom=0" by default. 
+                if humans[i].latentfrom == 1 
+                  bite_symp_ctr[max(1, t - humans[i].statetime - 1)] += 1
+                elseif humans[i].latentfrom == 2
+                  sex_symp_ctr[max(1, t - humans[i].statetime - 1)] += 1     
+                end       
+                if humans[i].swap == SYMP 
+                  make_human_symptomatic(humans[i], P)
+                else
+                  make_human_sympisolated(humans[i], P)
+                end
+              elseif humans[i].swap == ASYMP      
+                if humans[i].latentfrom == 1 
+                  bite_asymp_ctr[max(1, t - humans[i].statetime - 1)] += 1
+                elseif humans[i].latentfrom == 2
+                  sex_asymp_ctr[max(1, t - humans[i].statetime - 1)] += 1   
+                end  
+                make_human_asymptomatic(humans[i], P)
+              elseif humans[i].swap == REC
+                make_human_recovered(humans[i], P) 
+              elseif humans[i].swap == SUSC
+                print("swap set to sus - never happen")
+                assert(1 == 2)
+              end 
+              humans[i].timeinstate = 0 #reset their time in state
+              humans[i].swap = UNDEF #reset their time in state
+          end
+      end
 
+      ## end of day update for mosquitos
+      for i=1:P.grid_size_mosq
+          increase_timestate(mosqs[i])
+          if mosqs[i].swap != UNDEF 
+              if mosqs[i].swap == LAT 
+                make_mosquito_latent(mosqs[i], P)
+              elseif mosqs[i].swap == SYMP
+                make_mosquito_symptomatic(mosqs[i])
+              end
+              mosqs[i].timeinstate = 0
+              mosqs[i].swap = UNDEF
+          end 
+      end
+      callback(1) ## increase the progress metre by 1.. callback function
+  end ##end of time 
+  
+  ## return the counters 
+  return latent_ctr, bite_symp_ctr, bite_asymp_ctr, sex_symp_ctr, sex_asymp_ctr
 end
 
+#addprocs(4)
+#numberofsims = 500
+## setup main variables    
+#@everywhere P = ZikaParameters(sim_time = 100, transmission = 0.3947, grid_size_human = 10000, grid_size_mosq = 50000, inital_latent = 1, reduction_factor = 0.1)
+#results = pmap((cb, x) -> main_calibration(x, P, callback=cb), Progress(numberofsims*P.sim_time), 1:numberofsims, passcallback=true)
 
-#  numberofsims = 500
-#  @everywhere transmission = 0.0
+
+ #  @everywhere transmission = 0.0
 #  for j=0.43:-0.01:0.40
 #     #@broadcast testi = 0.35
 #     #sendto(workers(), transmission = 0.625 ) ## 0.1
@@ -240,7 +297,7 @@ end
 #     @everywhere P = ZikaParameters(sim_time = 100, grid_size_human = 10000, grid_size_mosq = 20000, inital_latent = 1, reduction_factor = 0.9)    ## variables defined outside are not available to the functions. 
     
 #     print("parameters: \n $P \n")
-#     #results = pmap(x -> main(x, P), 1:numberofsims)      
+
 #     results = pmap((cb, x) -> main_calibration(cb, x, P), Progress(numberofsims*P.sim_time), 1:numberofsims, passcallback=true)
 #     ## set up dataframes
 #     ldf  = DataFrame(Int64, 0, P.sim_time)

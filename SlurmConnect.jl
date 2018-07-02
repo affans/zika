@@ -1,5 +1,5 @@
 VERSION >= v"0.4.0-dev+6521" && __precompile__(true)
-
+## for slurm:  sstat --format=AveCPU,AvePages,AveRSS,AveVMSize,JobID -j <jobid> --allsteps
 module SlurmConnect
 
     using Compat
