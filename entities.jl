@@ -48,23 +48,30 @@ function setup_humans(a::Array{Human})
     end  # or use a = [Human(SUSC) for i in 1:2]    
 end
 
-function setup_human_demographics(a::Array{Human}) 
-    ## get the 3-tuple age: (probdistribution, agemin, agemax)
-    cumdist, dist_gend, agemin, agemax = distribution_age() 
+function setup_human_demographics(a::Array{Human}, P::ZikaParameters)
+    agemin, agemax = age_brackets()  ## get the age brackets
+    md, fd = age_distribution()      ## get the age_distribution
+    male = md[P.country]
+    female = fd[P.country]
     @inbounds for i = 1:length(a)
         #assign age and gender        
-        rn = rand()
-        g = findfirst(x -> rn <= x, cumdist)
-        age_y = rand(agemin[g]:agemax[g])#Int(round(rand()*(agemax[g] - agemin[g]) + agemin[g]))
-        a[i].age = age_y
-        a[i].agegroup = g
         if rand() < 0.5 #dist_gend[g] 
-            a[i].gender = MALE
+            a[i].gender = MALE  
+            rn = rand()          
+            g = findfirst(x -> rn <= x, male)
+            age_y = rand(agemin[g]:agemax[g])#Int(round(rand()*(agemax[g] - agemin[g]) + agemin[g]))
+            a[i].age = age_y
+            a[i].agegroup = g
         else 
-            a[i].gender = FEMALE
-        end        
-    end 
-end
+            a[i].gender = FEMALE     
+            rn = rand()       
+            g = findfirst(x -> rn <= x, female)
+            age_y = rand(agemin[g]:agemax[g])#Int(round(rand()*(agemax[g] - agemin[g]) + agemin[g]))
+            a[i].age = age_y
+            a[i].agegroup = g
+        end      
+    end
+end 
 
 function setup_preimmunity(h::Array{Human}, P::ZikaParameters)
     ctr = 0 
@@ -81,7 +88,54 @@ end
 
 
 
-function setup_pregnant_women(h::Array{Human}, P::ZikaParameters)
+
+function setup_pregnant_women(h::Array{Human}, P::ZikaParameters)    
+    propvec = fertility_distribution()[P.country]
+    a = find(x -> x.gender == FEMALE && x.age >= 15 && x.age <= 19, h)
+    ag = Int(round(propvec[1]*length(a)))
+    for ii = 1:ag        
+        h[a[ii]].ispregnant = true
+        h[a[ii]].timeinpregnancy = rand(0:270)
+    end
+    a = find(x -> x.gender == FEMALE && x.age >= 20 && x.age <= 24, h)
+    ag = Int(round(propvec[2]*length(a)))
+    for ii = 1:ag        
+        h[a[ii]].ispregnant = true
+        h[a[ii]].timeinpregnancy = rand(0:270)
+    end
+    a = find(x -> x.gender == FEMALE && x.age >= 25 && x.age <= 29, h)
+    ag = Int(round(propvec[3]*length(a)))
+    for ii = 1:ag        
+        h[a[ii]].ispregnant = true
+        h[a[ii]].timeinpregnancy = rand(0:270)
+    end
+    a = find(x -> x.gender == FEMALE && x.age >= 30 && x.age <= 34, h)
+    ag = Int(round(propvec[4]*length(a)))
+    for ii = 1:ag        
+        h[a[ii]].ispregnant = true
+        h[a[ii]].timeinpregnancy = rand(0:270)
+    end
+    a = find(x -> x.gender == FEMALE && x.age >= 35 && x.age <= 39, h)
+    ag = Int(round(propvec[5]*length(a)))
+    for ii = 1:ag        
+        h[a[ii]].ispregnant = true
+        h[a[ii]].timeinpregnancy = rand(0:270)
+    end
+    a = find(x -> x.gender == FEMALE && x.age >= 40 && x.age <= 44, h)
+    ag = Int(round(propvec[6]*length(a)))
+    for ii = 1:ag        
+        h[a[ii]].ispregnant = true
+        h[a[ii]].timeinpregnancy = rand(0:270)
+    end
+    a = find(x -> x.gender == FEMALE && x.age >= 45 && x.age <= 49, h)
+    ag = Int(round(propvec[7]*length(a)))
+    for ii = 1:ag        
+        h[a[ii]].ispregnant = true
+        h[a[ii]].timeinpregnancy = rand(0:270)
+    end
+end
+
+function setup_pregnant_women_deprecated(h::Array{Human}, P::ZikaParameters)
     ## get the number of eligible, this is too slow just use loop/if
     sd = find(x -> x.gender == FEMALE && x.age >= 15 && x.age <= 49, h)
     totalnumber = length(sd)*(44*0.75 + 120*0.167)/1000 ## parameters from seyed
@@ -141,7 +195,7 @@ function setup_vaccination(h::Array{Human}, P::ZikaParameters)
     ## 2) any women not vaccinated previously and is pregnant or becomes pregnant, 80% coverage
     ## 3) any woman on other age (9 - 15, 49+), or all men (9-60) are 10%
 
-	genvac = 0
+ genvac = 0
     prevac = 0
 
     ## first check if there is even coverage to be had 

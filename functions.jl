@@ -70,3 +70,49 @@ function get_preg_distribution(P)
   end
   
   
+## check if one array is embedded (subset) in a second array
+function subset2(x,y)
+    lenx = length(x)
+    first = x[1]
+    if lenx == 1
+        return findnext(y, first, 1) != 0
+    end
+    leny = length(y)
+    lim = length(y) - length(x) + 1
+    cur = 1
+    while (cur = findnext(y, first, cur)) != 0
+        cur > lim && break
+        beg = cur
+        @inbounds for i = 2:lenx
+            y[beg += 1] != x[i] && (beg = 0 ; break)
+        end
+        beg != 0 && return true
+        cur += 1
+    end
+    false
+end
+
+function countries()
+    a = JSON.parsefile("country_data.json", dicttype=Dict,  use_mmap=true)
+    c = Array{String}(length(a))
+    for (i, d) in enumerate(a)
+        c[i] = d["name"]
+    end
+    return c
+end
+
+## returns beta values
+function transmission_beta(keyname, cn)
+    a = JSON.parsefile("country_data.json", dicttype=Dict,  use_mmap=true)    
+    idx = find(x -> x["name"] == cn, a)
+    length(idx) == 0 && error("Country dosn't exist")
+    return a[idx[1]]["data"][keyname]
+end
+
+## returns beta values
+function herdimmunity(cn)
+    a = JSON.parsefile("country_data.json", dicttype=Dict,  use_mmap=true)    
+    idx = find(x -> x["name"] == cn, a)
+    length(idx) == 0 && error("Country dosn't exist")
+    return a[idx[1]]["data"]["preimmunity"]
+end

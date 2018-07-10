@@ -21,8 +21,8 @@ A Shoukat, SM Moghadas, T Vilches
 
 # How to use
 To run this model, two particular modules need to be considered.
-1) The demographics of the area of interest
-2) Calibration of the model to that country's particular $R_0$ estimate. 
+1) The **demographics** of the area of interest
+2) **Calibration** of the model to that country's particular $R_0$ estimate. 
 
 ## Calibration
 The calibration run code is in `calibration.jl`. Currently the code uses the Slurm HPC manager to utilize the lab's HPC cluster. On a local computer, say with 8 cores, one can simply comment/delete this code and go with a simple `addprocs(8)`. 
@@ -37,3 +37,6 @@ Calibration is run by executing `julia calibration.jl`
 Agent-Based modelling Laboratory, 
 York University, Toronto, Ontario M3J 1P3, Canada
 `affans@yorku.ca` 
+
+## TO DO
+- Test whether the distribution matrix for male/female row numbers match the country_vector

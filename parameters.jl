@@ -12,6 +12,7 @@
     grid_size_mosq = 50000
     inital_latent = 1 
     writerawfiles = 0  ## 0 for no, 1 for yes. if 1, main() writes simulation-i.dat
+    country::String = "Argentina"
 
     # mosquito lifetime parameters
     winterlifespan_max = 30
@@ -85,59 +86,34 @@
 end
 
 
-## age distribution discrete for humans
-function distribution_age()  
-   
-    ProbBirthAge = Vector{Float64}(17)
-    SumProbBirthAge = Vector{Float64}(17)
+
+function age_distribution()
+    a = JSON.parsefile("country_data.json", dicttype=Dict,  use_mmap=true)
+    md = Dict{String, Array{Float64}}()
+    fd = Dict{String, Array{Float64}}()
+    for (i, d) in enumerate(a)        
+        md["$(d["name"])"] = cumsum(convert(Array{Float64}, d["data"]["maleage"]))
+        fd["$(d["name"])"] = cumsum(convert(Array{Float64}, d["data"]["femaleage"]))
+        md["$(d["name"])"][end] = 1.0
+        fd["$(d["name"])"][end] = 1.0
+    end
+    return md, fd
+end
+
+
+function fertility_distribution()
+    a = JSON.parsefile("country_data.json", dicttype=Dict,  use_mmap=true)
+    fd = Dict{String, Array{Float64}}()
+    for (n, d) in enumerate(a)
+        fd["$(d["name"])"] = d["data"]["fertility"]*0.75/1000       
+    end
+    return fd
+end
+
+
+function age_brackets() 
     AgeMin = Vector{Int64}(17)
     AgeMax = Vector{Int64}(17)
-
-    ProbMales = Vector{Float64}(17)
-    ProbMalesCumalative = Vector{Float64}(17)
-
-
-    ProbBirthAge[1] = 0.091248422
-    ProbBirthAge[2] = 0.090502874
-    ProbBirthAge[3] = 0.091847835
-    ProbBirthAge[4] = 0.093120832
-    ProbBirthAge[5] = 0.089609792
-    ProbBirthAge[6] = 0.08103463
-    ProbBirthAge[7] = 0.072690616
-    ProbBirthAge[8] = 0.065216532
-    ProbBirthAge[9] = 0.061130039
-    ProbBirthAge[10] = 0.060741253
-    ProbBirthAge[11] = 0.053966855
-    ProbBirthAge[12] = 0.043527878
-    ProbBirthAge[13] = 0.033841535
-    ProbBirthAge[14] = 0.025345255
-    ProbBirthAge[15] = 0.018361588
-    ProbBirthAge[16] = 0.014017567
-    ProbBirthAge[17] = 0.013796498
-
-    SumProbBirthAge = cumsum(ProbBirthAge)
- 
-        
-    ProbMales[1] = 0.094553401
-    ProbMales[2] = 0.093693146
-    ProbMales[3] = 0.094978133
-    ProbMales[4] = 0.096477185
-    ProbMales[5] = 0.092884086
-    ProbMales[6] = 0.082288591
-    ProbMales[7] = 0.071831422
-    ProbMales[8] = 0.064047993
-    ProbMales[9] = 0.059401809
-    ProbMales[10] = 0.058733309
-    ProbMales[11] = 0.052017966
-    ProbMales[12] = 0.04172444
-    ProbMales[13] = 0.032401639
-    ProbMales[14] = 0.024016853
-    ProbMales[15] = 0.016942028
-    ProbMales[16] = 0.012369692
-    ProbMales[17] = 0.011638306
-    
-    ProbMalesCumalative = cumsum(ProbMales)
-
 
     AgeMin[1] = 1;
     AgeMax[1] = 4;
@@ -182,34 +158,28 @@ function distribution_age()
     AgeMax[14] = 69;
 
     AgeMin[15] = 70;
-    AgeMax[15] = 74;
+    AgeMax[15] = 100;
 
-    AgeMin[16] = 75;
-    AgeMax[16] = 79;
-
-    AgeMin[17] = 80;
-    AgeMax[17] = 100;
-
-    return SumProbBirthAge, ProbMalesCumalative, AgeMin, AgeMax
+    return AgeMin, AgeMax
 end
 
 
 ## male/female sexual frequency
 function distribution_sexfrequency()
     dist_men = [    [0.167, 0.334, 0.563, 0.792, 0.896, 1],     # 15 - 24    
-                    [0.109,	0.572,	0.7575,	0.943,	0.9725,	1], # 25 - 29                   
-                    [0.201,	0.674,	0.808,	0.942,	0.971,	1], # 30 - 39
-                    [0.254,	0.764,	0.8635,	0.963,	0.9815,	1], # 40 - 49                   
-                    [0.456,	0.839,	0.914,	0.989,	0.9945,	1], # 50 - 55  
+                    [0.109, 0.572, 0.7575, 0.943, 0.9725, 1], # 25 - 29                   
+                    [0.201, 0.674, 0.808, 0.942, 0.971, 1], # 30 - 39
+                    [0.254, 0.764, 0.8635, 0.963, 0.9815, 1], # 40 - 49                   
+                    [0.456, 0.839, 0.914, 0.989, 0.9945, 1], # 50 - 55  
                     [0.551, 0.905, 0.9525, 1, 1, 1],            # 60 - 69
                     [0.784, 0.934, 0.963, 0.992, 0.996, 1]]         # 70+                     
-    dist_women = [  [0.265,	0.412,	0.5885,	0.765,	0.8825,	1],     # 15 - 24    
-                    [0.151,	0.628,	0.804,	0.98,	0.99,	1], # 25 - 29                   
-                    [0.228,	0.73,	0.8395,	0.949,	0.9745,	1], # 30 - 39
-                    [0.298,	0.764,	0.868,	0.972,	0.9855,	1], # 40 - 49                   
-                    [0.457,	0.819,	0.9035,	0.988,	0.9935,	1], # 50 - 59
-                    [0.579,	0.938,	0.969,	1,	1,	1],            # 60 - 69
-                    [0.789,	0.972,	0.979,	0.986,	0.993,	1]]         # 70+ 
+    dist_women = [  [0.265, 0.412, 0.5885, 0.765, 0.8825, 1],     # 15 - 24    
+                    [0.151, 0.628, 0.804, 0.98, 0.99, 1], # 25 - 29                   
+                    [0.228, 0.73, 0.8395, 0.949, 0.9745, 1], # 30 - 39
+                    [0.298, 0.764, 0.868, 0.972, 0.9855, 1], # 40 - 49                   
+                    [0.457, 0.819, 0.9035, 0.988, 0.9935, 1], # 50 - 59
+                    [0.579, 0.938, 0.969, 1, 1, 1],            # 60 - 69
+                    [0.789, 0.972, 0.979, 0.986, 0.993, 1]]         # 70+ 
     ## return distribution as tuple
   
     # since this is manually input, check if the length of all the inner vectors are the same
