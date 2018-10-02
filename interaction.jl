@@ -108,9 +108,7 @@ function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaPa
           end             
         end
 
-        
-
-        ## 2) infected person - susceptible mosquito
+        ## 2) infected person (the initial calibtration person) - susceptible mosquito
         if (h[persontobite].health == SYMP || h[persontobite].health == ASYMP) && m[i].health == SUSC && persontobite == calibratedperson
           
           # the persontobite is the calibrated person, count how many total bites he gets from all mosquitos

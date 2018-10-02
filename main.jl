@@ -5,17 +5,17 @@
 #using Gadfly
 #using Plots
 
-using ProgressMeter
+using ProgressMeter         ## updated for 1.0
 using PmapProgressMeter
-using DataFrames
-using CSV
-using Match
-using ParallelDataTransfer
-using QuadGK
-using Parameters #module
-using Distributions
-using StatsBase
-using JSON
+using DataFrames            ## updated for 1.0
+using CSV                   ## updated for 1.0
+using Match                 ## dosn't look like it's updated -- remove all instances of code -- submit PR. 
+#using ParallelDataTransfer  ## I don't really use this, but 0.7/1.0 shouldn't have affected this. 
+using QuadGK                ## updated for 1.0
+using Parameters #module    ## updated for 1.0
+using Distributions         ## updated for 1.0
+using StatsBase             ## updated for 1.0
+using JSON                  ## updated for 1.0
 
 include("parameters.jl");   ## sets up the parameters
 include("functions.jl");
@@ -202,15 +202,17 @@ function main_calibration(simulationnumber::Int64, P::ZikaParameters; callback::
     
     ## simulation setup functions
     setup_humans(humans)                      ## initializes the empty array
-    setup_human_demographics(humans)          ## setup age distribution, male/female 
+    setup_human_demographics(humans, P)          ## setup age distribution, male/female 
     setup_mosquitos(mosqs, current_season)    ## setup the mosquito array, including bite distribution
     setup_mosquito_random_age(mosqs, P)       ## assign age and age of death to mosquitos
     setup_rand_initial_latent(humans, P)      ## introduce initial latent person
-  
+    
+    ## calibration parameters/variables
     calibrated_person = 0
     mosq_latent_ctr = 0
     newmosq_ctr = 0
     calibrated_person = find(x -> x.health == LAT, humans)[1]   
+    
     ## the main time loop 
     for t=1:P.sim_time        
         
@@ -282,7 +284,8 @@ function setup_filestructure(P)
   iso = "Iso$(Int(P.ProbIsolationSymptomatic*100))"
   cov = "Coverage$(Int(P.coverage_general*100))$(Int(P.coverage_pregnant*100))"
   pre = P.preimmunity > 0 ? "Pre1" : "Pre0"
-  return string(cn, "/", asymp, iso, "_", cov, pre)
+  trans = replace(string(P.transmission), "." => "-")
+  return string(cn, "/", asymp, iso, "_", cov, pre, "_", trans)
 end
 
 function dataprocess(results, numofsims, P)

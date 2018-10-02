@@ -86,9 +86,6 @@ function setup_preimmunity(h::Array{Human}, P::ZikaParameters)
     return ctr
 end
 
-
-
-
 function setup_pregnant_women(h::Array{Human}, P::ZikaParameters)    
     propvec = fertility_distribution()[P.country]
     a = find(x -> x.gender == FEMALE && x.age >= 15 && x.age <= 19, h)
@@ -134,6 +131,25 @@ function setup_pregnant_women(h::Array{Human}, P::ZikaParameters)
         h[a[ii]].timeinpregnancy = rand(0:270)
     end
 end
+
+### test function
+function get_preg_distribution(P)
+    cnts = zeros(100) ## age 1 to 100
+    for i in 1:1000
+      humans = Array{Human}(P.grid_size_human)
+      setup_humans(humans)                      ## initializes the empty array
+      setup_human_demographics(humans)          ## setup age distribution, male/female 
+      setup_preimmunity(humans , P)
+      setup_pregnant_women(humans, P)
+  
+      a = [humans[i].age for i in find(x -> x.ispregnant == true, humans)]  
+      for i in a
+        cnts[i] += 1
+      end
+    end  
+    return cnts
+end
+
 
 function setup_pregnant_women_deprecated(h::Array{Human}, P::ZikaParameters)
     ## get the number of eligible, this is too slow just use loop/if
@@ -195,7 +211,7 @@ function setup_vaccination(h::Array{Human}, P::ZikaParameters)
     ## 2) any women not vaccinated previously and is pregnant or becomes pregnant, 80% coverage
     ## 3) any woman on other age (9 - 15, 49+), or all men (9-60) are 10%
 
- genvac = 0
+    genvac = 0
     prevac = 0
 
     ## first check if there is even coverage to be had 

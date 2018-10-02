@@ -90,7 +90,8 @@ dump(humans[1])
 Pkg.add("JSON")
 using JSON
 
-
+P = ZikaParameters()
+JSON.json(P)
 include("main.jl")
 a = JSON.parsefile("country_data.json", dicttype=Dict,  use_mmap=true)
 countries = Array{String}(length(a))
@@ -143,8 +144,24 @@ for (i, c) in enumerate(cn)
     end
     tmp = Array{Float64}(15)    
     dfm[Symbol(c)] = reshape(sum(sm, 2)/100, (15, ))
-    dff[Symbol(c)] = reshape(sum(sm, 2)/100, (15, ))
+    dff[Symbol(c)] = reshape(sum(sf, 2)/100, (15, ))
 end
+dfm[:agegroup] = 1:15
+dff[:agegroup] = 1:15
+
+maleplot = dff |>
+@vlplot(repeat={row=Symbol.(countries())}) +
+(
+    @vlplot(width=400, height=400) + 
+    @vlplot(
+        :bar,
+        title = {repeat=:row},
+        y={field={repeat=:row},typ=:quantitative},
+        x={"agegroup:n", title="Age Group"},       
+        opacity={value=0.2}
+    ) 
+)
+save("femaleplot.pdf", maleplot)
 
 dfp[Symbol(P.country)] = length(find(x-> x.gender == FEMALE && x.age >= 15 && x.age <= 49 && x.ispregnant == true , humans))
 P = ZikaParameters(preimmunity = 0, transmission = 1.0, coverage_pregnant=0.05, coverage_general=0.0, preg_percentage=1.0, country="Colombia")
@@ -179,3 +196,21 @@ using CSV
 
 df = CSV.read("transmissions.csv", )
 
+
+
+## test change of parameters over all workers
+#fetch(@spawnat 4 "on $(myid()), val is $(P.transmission)")
+# using Base.Test
+# valtotest = P.transmission
+# ctr = 0
+# for i=1:nworkers()
+#   #tval = fetch(@spawnat i P.transmission)
+#   tval = remotecall_fetch(() -> P.transmission, i)
+#   println("testing $i")
+#   if tval != valtotest
+#     ctr += 1
+#   end
+# end
+# println("wrong vals: $ctr")
+
+## recover code K86OZ4AUUE

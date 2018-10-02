@@ -15,10 +15,7 @@ module SlurmConnect
         worker_arg = `--worker=$(Base.cluster_cookie())`
     end
 
-    # ClusterManager for Slurm
-
-   
-
+    # ClusterManager for Slurm   
     immutable SlurmManager <: ClusterManager
         np::Integer
     end

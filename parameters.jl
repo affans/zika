@@ -12,7 +12,7 @@
     grid_size_mosq = 50000
     inital_latent = 1 
     writerawfiles = 0  ## 0 for no, 1 for yes. if 1, main() writes simulation-i.dat
-    country::String = "Argentina"
+    country::String = "Colombia"
 
     # mosquito lifetime parameters
     winterlifespan_max = 30
@@ -53,7 +53,7 @@
     #prob_infection_HtoM::Float64 = 0.352
     transmission::Float64 = 0.0
     ProbIsolationSymptomatic::Float64 = 0  ## if symptomatic, what is probability of isolation
-    reduction_factor::Float64 = 0.1        ## asymptomatic reduction_factor?
+    reduction_factor::Float64 = 0.0       ## asymptomatic reduction_factor?
 
     ## sexual interaction specific
     condom_reduction::Float64 = 0.0
@@ -76,12 +76,12 @@
     ## vaccine parameters    
     coverage_general::Float64 = 0.0 # 0.10
     coverage_pregnant::Float64 = 0.0 #0.80
-    coverage_reproductionAge::Float64 = 0.6 #0.6
+    coverage_reproductionAge::Float64 = 0.0 #0.6
     efficacy_min::Float64 = 0.60
     efficacy_max::Float64 = 0.90
 
     ## preexisting immunity 
-    preimmunity::Float64 = 0.08  ## coverage of preimmunity
+    preimmunity::Float64 = 0.0  ## coverage of preimmunity
     preimmunity_protectionlvl::Float64 = 1.0
 end
 
