@@ -1,33 +1,22 @@
-include("SlurmConnect.jl")
-using ProgressMeter
-using PmapProgressMeter
-using DataFrames
-using Match
-using ParallelDataTransfer
-using QuadGK
-using Parameters #module
-using Distributions
-using StatsBase
-using Lumberjack
-using FileIO
-using SlurmConnect 
+using DataFrames            ## updated for 1.0
+using CSV                   ## updated for 1.0
+using Match                 ## updated for 1.0
+using QuadGK                ## updated for 1.0
+using Parameters #module    ## updated for 1.0
+using Distributions         ## updated for 1.rm 0
+using StatsBase             ## updated for 1.0
+using JSON                  ## updated for 1.0
+using Random
+using DelimitedFiles
+using Distributed
+using Base.Filesystem
+using Statistics
+using ClusterManagers
+using Dates
 
-#Pkg.add("VegaLite")
-
-add_truck(LumberjackTruck("processrun.log"), "my-file-logger")
-remove_truck("console")
-info("lumberjack process started up, starting repl")
-
-info("adding procs...")
-
-s = SlurmManager(544)
-@eval Base.Distributed import Base.warn_once
-addprocs(s, partition="defq", N=17)
-#addprocs(40)
-#addprocs([("node003", 32), ("node004", 32)])
-
+addprocs(SlurmManager(544), partition="defq", N=17)
 println("added $(nworkers()) processors")
-info("starting @everywhere include process...")
+include("main.jl")
 @everywhere include("main.jl")
 
 
@@ -48,6 +37,7 @@ cn = countries()
 
 ## set global properties
 
+println("Starting at: $(Dates.format(now(), "HH:MM"))")
 results = map(cn) do c    
     # for each country get the beta transmission values
     # @everywhere b3ten = transmission_beta("3beta_ten", $c) 
@@ -81,14 +71,12 @@ results = map(cn) do c
         coverage_general = 0.10,
         coverage_pregnant = 0.80,     
         coverage_reproductionAge =  0.60,
-        preimmunity = $pm)
-        #preimmunity = $pm)
+        preimmunity = $pm)        
     run(P, 2000)
 end
 
-map(rm, filter(t -> ismatch(r"job.*\.out", t), readdir()))
-info("all simulations finished")
-quit()
+#map(rm, filter(t -> ismatch(r"job.*\.out", t), readdir()))
+println("All sims finished at: $(Dates.format(now(), "HH:MM"))")
 
 
 

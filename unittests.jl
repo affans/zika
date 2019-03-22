@@ -80,7 +80,6 @@ end
   ## before running the main setups, make sure distributions are setup, make these variables global
   sdist_lifetimes, wdist_lifetimes = distribution_hazard_function(P)  #summer/winter mosquito lifetimes
   m = create_mosquito(current_season)
-  @test m.age == 1
   @test m.statetime == 999
   @test m.timeinstate == 0
   @test m.infectionfrom == 0

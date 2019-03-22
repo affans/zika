@@ -13,6 +13,11 @@ using Parameters #module    ## updated for 1.0
 using Distributions         ## updated for 1.rm 0
 using StatsBase             ## updated for 1.0
 using JSON                  ## updated for 1.0
+using Random
+using DelimitedFiles
+using Distributed
+using Base.Filesystem
+using Statistics
 
 include("parameters.jl");   ## sets up the parameters
 include("functions.jl");
@@ -21,7 +26,7 @@ include("disease.jl");
 include("interaction.jl");
 
 function main(simulationnumber::Int64, P::ZikaParameters)
-        
+    Random.seed!(simulationnumber)  
     ## simple error checks
     P.transmission == 0.0 && error("Transmission value is set to zero - no disease will happen");
     !(P.country in countries()) && error("Country not defined for model");
@@ -129,8 +134,7 @@ function main(simulationnumber::Int64, P::ZikaParameters)
                 elseif humans[i].swap == REC
                   make_human_recovered(humans[i], P) 
                 elseif humans[i].swap == SUSC
-                  print("swap set to sus - never happen")
-                  assert(1 == 2)
+                  error("swap set to sus - never happen")                  
                 end 
                 humans[i].timeinstate = 0 #reset their time in state
                 humans[i].swap = UNDEF #reset their time in state
@@ -289,18 +293,18 @@ function dataprocess(results, numofsims, P)
   #numofdays = 182*2
   #numofsims = 2000
   #create empty matrices
-  lm = Matrix{Int64}(numofsims, P.sim_time)
-  bsm = Matrix{Int64}(numofsims, P.sim_time)
-  bam = Matrix{Int64}(numofsims, P.sim_time)
-  ssm = Matrix{Int64}(numofsims, P.sim_time)
-  sam = Matrix{Int64}(numofsims, P.sim_time)
+  lm =  Matrix{Int64}(undef, numofsims, P.sim_time)
+  bsm = Matrix{Int64}(undef, numofsims, P.sim_time)
+  bam = Matrix{Int64}(undef, numofsims, P.sim_time)
+  ssm = Matrix{Int64}(undef, numofsims, P.sim_time)
+  sam = Matrix{Int64}(undef, numofsims, P.sim_time)
   
-  ps = Matrix{Int64}(numofsims, P.sim_time)
-  pa = Matrix{Int64}(numofsims, P.sim_time)
-  mic = Matrix{Int64}(numofsims, P.sim_time)
-  vgen = Matrix{Int64}(numofsims, P.sim_time)
-  vpre = Matrix{Int64}(numofsims, P.sim_time)
-  rec = Matrix{Int64}(numofsims, P.sim_time)
+  ps = Matrix{Int64}(undef, numofsims, P.sim_time)
+  pa = Matrix{Int64}(undef, numofsims, P.sim_time)
+  mic = Matrix{Int64}(undef, numofsims, P.sim_time)
+  vgen = Matrix{Int64}(undef, numofsims, P.sim_time)
+  vpre = Matrix{Int64}(undef, numofsims, P.sim_time)
+  rec = Matrix{Int64}(undef, numofsims, P.sim_time)
     
   # read each file
   for i = 1:numofsims
@@ -333,9 +337,9 @@ end
 
 function run(P, numberofsims) 
   # cb is the callback function. It updates the progress bar
-  info("Parameters: \n $P \n")  ## prints to STDOUT - redirect to logfile
-  info("directory name: $(setup_filestructure(P))")  
-  info("starting pmap...\n")
+  println("Parameters: \n $P \n")  ## prints to STDOUT - redirect to logfile
+  println("directory name: $(setup_filestructure(P))")  
+  println("starting pmap...\n")
   results = pmap(x -> main(x, P), 1:numberofsims)      
   dataprocess(results, numberofsims, P)
 end

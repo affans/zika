@@ -291,7 +291,7 @@ function create_mosquito(current_season)
     d = current_season == SUMMER ? sdist_lifetimes : wdist_lifetimes  ## current_season defined as a global in main.jl
     rn = rand()
     m.ageofdeath =  findfirst(x -> rn <= x, d)        
-    m.age = 0   ## new mosquito is 1 day old (this is because the way sim logic works)
+    m.age = 1   ## new mosquito is 1 day old (this is because the way sim logic works)
     m.numberofbites = min(rand(Poisson(m.ageofdeath/2)), m.ageofdeath)
     
     # bite distribution
