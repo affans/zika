@@ -5,7 +5,7 @@
 
 
 ## MAIN SYSTEM PARAMETER
-@with_kw immutable ZikaParameters @deftype Int64
+@with_kw struct ZikaParameters @deftype Int64
     # general parameters
     sim_time = 364       ## time of simulation - 2 years in days
     grid_size_human = 10000
@@ -112,8 +112,8 @@ end
 
 
 function age_brackets() 
-    AgeMin = Vector{Int64}(17)
-    AgeMax = Vector{Int64}(17)
+    AgeMin = Vector{Int64}(undef, 17)
+    AgeMax = Vector{Int64}(undef, 17)
 
     AgeMin[1] = 1;
     AgeMax[1] = 4;

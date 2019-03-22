@@ -3,4 +3,5 @@
 *.xlsx
 *.dat
 *.Rhistory
+*.Rapp*
 test.jl

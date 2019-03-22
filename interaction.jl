@@ -6,7 +6,7 @@ function bite_interaction(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
   totalbitestoday = 0  
   
   ## go through humans, and find all humans that are not isolated
-  nonisos = find(x -> x.health != SYMPISO, h) 
+  nonisos = findall(x -> x.health != SYMPISO, h) 
 
   ## go through the entire mosquito array
   for i=1:length(m)
@@ -49,7 +49,7 @@ end
 
 
 function sexual_interaction(h::Array{Human}, m::Array{Mosq}, P::ZikaParameters)
-  suitable = find(x -> x.partner > -1, h)
+  suitable = findall(x -> x.partner > -1, h)
   for i in suitable
     if h[i].health == SYMP || h[i].health == ASYMP || h[i].health == SYMPISO || h[i].health == REC 
       if h[h[i].partner].health == SUSC
@@ -90,7 +90,7 @@ function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaPa
   #print("health of calibrated person: $(h[calibrated_person].health) \n")
   totalbitestoday = 0 ## counts how many bites the infected calibrated person got
   newmosquitos = 0
-  nonisos = find(x -> x.health != SYMPISO, h)  ## go through humans, and find all humans that are not isolated
+  nonisos = findall(x -> x.health != SYMPISO, h)  ## go through humans, and find all humans that are not isolated
   for i=1:length(m)
     willbite = m[i].bitedistribution[m[i].age] ## check if mosquito i will bite on this day
     if willbite == 1       
@@ -131,4 +131,33 @@ function bite_interaction_calibration(h::Array{Human}, m::Array{Mosq}, P::ZikaPa
     end 
   end
   return totalbitestoday, newmosquitos
+end
+
+
+function pregnancy_and_vaccination(h::Array{Human}, P::ZikaParameters)
+  ## this increases the time in pregnancy for women by 1 day. If it reaches 270 days, a baby is born - this does not need to be recorded (as you can get this from pregnant women). At 270 days, we find another nonpregnant women (in the same age group) and make them pregnant with timeinpregnancy = 0
+  ## As the new person is becoming pregnant, vaccinate them if they have not been vaccinated before. if the vaccination coverage is set to zero, no one will get vaccinated according to this code. 
+  ## The function returns the the number of vaccinated pregnant women (ie, if a women is becoming pregnant and also gets vaccination, we return this function) 
+
+  numbervaccinated = 0
+  @inbounds for i=1:length(h)
+      if h[i].ispregnant == true
+          h[i].timeinpregnancy += 1 
+          if h[i].timeinpregnancy == 270
+              ag = get_age_group(h[i].age)
+              sd = findall(x -> x.gender == FEMALE && x.agegroup == ag && x.ispregnant != true, h)
+              if length(sd) > 0 
+                  randfemale = rand(sd)
+                  h[randfemale].ispregnant = true
+                  h[randfemale].timeinpregnancy = 0
+                  if h[randfemale].isvaccinated == false && rand() < P.coverage_pregnant
+                      h[randfemale].isvaccinated = true
+                      h[randfemale].protectionlvl = P.efficacy_min + rand()*(P.efficacy_max - P.efficacy_min)                       
+                      numbervaccinated += 1                        
+                  end
+              end                
+          end
+      end        
+  end  
+  return numbervaccinated
 end

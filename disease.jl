@@ -1,6 +1,3 @@
-##############################################
-####### HELPER FUNCTIONS FOR DISEASE DYNAMICS#
-##############################################
 
 ## for a human, increase their time in a particular state, and if they are expiring move them to symp/asymp
 function increase_timestate(h::Human, P::ZikaParameters)
@@ -29,8 +26,7 @@ function increase_timestate(h::Human, P::ZikaParameters)
       h.swap = REC
     end
     if h.swap == UNDEF
-      print("Time in state has expired by swap was never set")
-      assert(1 == 2)
+      error("Time in state has expired by swap was never set")      
     end
   end
 end
@@ -45,8 +41,7 @@ function increase_timestate(m::Mosq)
       #biteleft = m.bitedistribution[m.age:m.ageofdeath]
       #print("bitedistribution: $biteleft \n")
     else 
-      print("timeinstate expired for a susceptible OR recovered mosquito")
-      assert(2==1)
+      error("timeinstate expired for a susceptible OR recovered mosquito")   
     end
   end
   return nothing

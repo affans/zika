@@ -5,15 +5,12 @@
 #using Gadfly
 #using Plots
 
-using ProgressMeter         ## updated for 1.0
-using PmapProgressMeter
 using DataFrames            ## updated for 1.0
 using CSV                   ## updated for 1.0
-using Match                 ## dosn't look like it's updated -- remove all instances of code -- submit PR. 
-#using ParallelDataTransfer  ## I don't really use this, but 0.7/1.0 shouldn't have affected this. 
+using Match                 ## updated for 1.0
 using QuadGK                ## updated for 1.0
 using Parameters #module    ## updated for 1.0
-using Distributions         ## updated for 1.0
+using Distributions         ## updated for 1.rm 0
 using StatsBase             ## updated for 1.0
 using JSON                  ## updated for 1.0
 
@@ -23,15 +20,15 @@ include("entities.jl");   ## sets up functions for human and mosquitos
 include("disease.jl");
 include("interaction.jl");
 
-function main(simulationnumber::Int64, P::ZikaParameters; callback::Function = x -> nothing)   
+function main(simulationnumber::Int64, P::ZikaParameters)
         
     ## simple error checks
-    P.transmission == 0.0 && warning("Transmission value is set to zero - no disease will happen");
+    P.transmission == 0.0 && error("Transmission value is set to zero - no disease will happen");
     !(P.country in countries()) && error("Country not defined for model");
 
     ## the grids for humans and mosquitos
-    humans = Array{Human}(P.grid_size_human)
-    mosqs  = Array{Mosq}(P.grid_size_mosq)
+    humans = Array{Human}(undef, P.grid_size_human)
+    mosqs  = Array{Mosq}(undef, P.grid_size_mosq)
     
     ## current season
     current_season = SUMMER   #current season
@@ -152,8 +149,7 @@ function main(simulationnumber::Int64, P::ZikaParameters; callback::Function = x
                 mosqs[i].timeinstate = 0
                 mosqs[i].swap = UNDEF
             end 
-        end
-        callback(1) ## increase the progress metre by 1.. callback function
+        end      
     end ##end of time 
 
     ## count the number of people vaccinated from the initial setup
@@ -175,10 +171,10 @@ function main(simulationnumber::Int64, P::ZikaParameters; callback::Function = x
 end
 
 
-function main_calibration(simulationnumber::Int64, P::ZikaParameters; callback::Function = x->nothing)   
+function main_calibration(simulationnumber::Int64, P::ZikaParameters)
       
     ## simple error checks
-    P.transmission == 0.0 && warning("Transmission value is set to zero - no disease will happen")
+    P.transmission == 0.0 && error("Transmission value is set to zero - no disease will happen")
     !(P.country in countries()) && error("Country not defined for model");
     
     ## the grids for humans and mosquitos
@@ -211,7 +207,7 @@ function main_calibration(simulationnumber::Int64, P::ZikaParameters; callback::
     calibrated_person = 0
     mosq_latent_ctr = 0
     newmosq_ctr = 0
-    calibrated_person = find(x -> x.health == LAT, humans)[1]   
+    calibrated_person = findfirst(x -> x.health == LAT, humans)  
     
     ## the main time loop 
     for t=1:P.sim_time        
@@ -249,8 +245,7 @@ function main_calibration(simulationnumber::Int64, P::ZikaParameters; callback::
                 elseif humans[i].swap == REC
                   make_human_recovered(humans[i], P) 
                 elseif humans[i].swap == SUSC
-                  print("swap set to sus - never happen")
-                  assert(1 == 2)
+                  error("swap set to sus - never happen")                  
                 end 
                 humans[i].timeinstate = 0 #reset their time in state
                 humans[i].swap = UNDEF #reset their time in state
@@ -269,8 +264,7 @@ function main_calibration(simulationnumber::Int64, P::ZikaParameters; callback::
                 mosqs[i].timeinstate = 0
                 mosqs[i].swap = UNDEF
             end 
-        end
-        callback(1) ## increase the progress metre by 1.. callback function
+        end      
     end ##end of time 
     
     ## return the counters 
@@ -342,6 +336,6 @@ function run(P, numberofsims)
   info("Parameters: \n $P \n")  ## prints to STDOUT - redirect to logfile
   info("directory name: $(setup_filestructure(P))")  
   info("starting pmap...\n")
-  results = pmap((cb, x) -> main(x, P, callback=cb), Progress(numberofsims*P.sim_time), 1:numberofsims, passcallback=true)      
+  results = pmap(x -> main(x, P), 1:numberofsims)      
   dataprocess(results, numberofsims, P)
 end
